@@ -1,9 +1,11 @@
-"use client"; // Top-level client component for hooks
+
+"use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation"; // Added usePathname
 import type { JobPostInDB } from "@/lib/types";
 import { getJobByIdAction } from "@/lib/actions";
+import { useAuth } from "@/context/AuthContext"; // Added useAuth
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,27 +17,46 @@ import { format } from 'date-fns';
 function JobDetailsContent() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const jobId = typeof params.job_id === 'string' ? params.job_id : '';
+  const { user, token, isLoading: authLoading } = useAuth();
 
   const [job, setJob] = useState<JobPostInDB | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return; // Wait for auth state
+
+    if (!user && !token) {
+      router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    
     if (!jobId) {
       setError("Job ID is missing.");
       setIsLoading(false);
       return;
     }
+    
+    if (!token) { // Should be caught by above, but as a safeguard
+      setError("Authentication required.");
+      setIsLoading(false);
+      return;
+    }
+
 
     const fetchJobDetails = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedJob = await getJobByIdAction(jobId);
+        const fetchedJob = await getJobByIdAction(jobId, token);
         setJob(fetchedJob);
       } catch (err: any) {
         setError(err.message || "Failed to fetch job details.");
+        if (err.message === "Authentication token is required for this action." || err.status === 401 || err.status === 403) {
+             router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+        }
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -43,19 +64,20 @@ function JobDetailsContent() {
     };
 
     fetchJobDetails();
-  }, [jobId]);
+  }, [jobId, token, user, authLoading, router, pathname]);
 
-  if (isLoading) {
+  if (isLoading || authLoading || (!user && !token && !error)) { // Show loader while auth resolving or if redirecting (and not yet errored)
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
+         { (authLoading || (!user && !token)) && <p className="ml-4 text-muted-foreground">Authenticating...</p>}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-10 bg-destructive/10 border border-destructive rounded-lg">
+      <div className="text-center py-10 bg-destructive/10 border border-destructive rounded-lg max-w-2xl mx-auto">
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
         <p className="mt-4 text-xl font-semibold text-destructive">Error loading job details</p>
         <p className="text-destructive/80">{error}</p>
@@ -68,7 +90,7 @@ function JobDetailsContent() {
 
   if (!job) {
     return (
-      <div className="text-center py-10">
+      <div className="text-center py-10 max-w-2xl mx-auto">
         <p className="text-xl">Job not found.</p>
         <Button onClick={() => router.back()} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
@@ -155,15 +177,13 @@ function JobDetailsContent() {
           )}
         </CardContent>
       </Card>
-
-      {/* TrainingResources component removed */}
     </div>
   );
 }
 
 export default function JobDetailsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /><p className="ml-4 text-muted-foreground">Loading...</p></div>}>
       <JobDetailsContent />
     </Suspense>
   );

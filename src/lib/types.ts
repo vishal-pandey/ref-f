@@ -60,10 +60,13 @@ export interface HTTPValidationError {
 }
 
 export interface User {
-  id: string; // Assuming user ID is part of JWT or can be fetched
+  id: number; // Changed from string to number
   email?: string | null;
   mobile_number?: string | null;
-  // Add other user fields if available
+  is_active: boolean;
+  is_admin: boolean;
+  created_at: string; // date-time
+  updated_at: string; // date-time
 }
 
 export interface JobFilters {

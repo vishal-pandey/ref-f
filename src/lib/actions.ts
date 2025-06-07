@@ -9,15 +9,14 @@ import type {
   JobPostInDB,
   SuggestionList,
   JobFilters,
+  User,
 } from "./types";
 import { API_BASE_URL } from "./config";
-
-// Removed "use server";, cookies, revalidatePath as these are now client-side functions
 
 async function fetchAPI(
   endpoint: string,
   options: RequestInit = {},
-  token?: string | null // Token is now explicitly passed
+  token?: string | null
 ): Promise<any> {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -26,7 +25,13 @@ async function fetchAPI(
 
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+  } else if (!endpoint.startsWith("/auth/")) { // Do not throw for auth endpoints themselves
+    // Throw an error if token is required but not provided for non-auth endpoints
+    // This check assumes all non-auth endpoints now require a token
+    // console.warn(`Token not provided for protected endpoint: ${endpoint}`);
+    // throw new Error("Authentication token is required for this action.");
   }
+
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -41,7 +46,8 @@ async function fetchAPI(
       errorData = { message: response.statusText };
     }
     console.error(`API Error (${response.status}) on ${endpoint}:`, errorData);
-    throw new Error(errorData.detail?.[0]?.msg || errorData.message || `Request failed with status ${response.status}`);
+    const errorMessage = errorData.detail?.[0]?.msg || errorData.detail || errorData.message || `Request failed with status ${response.status}`;
+    throw new Error(errorMessage);
   }
   
   if (response.status === 204) { // No Content
@@ -63,67 +69,75 @@ export async function verifyOtpAction(data: OTPVerify): Promise<Token> {
     method: "POST",
     body: JSON.stringify(data),
   });
-  // Token is handled by AuthContext on the client, no httpOnly cookie setting here
   return tokenData;
 }
 
+// User Actions
+export async function getCurrentUserAction(token: string): Promise<User> {
+  if (!token) throw new Error("Authentication token is required to fetch user details.");
+  return fetchAPI("/users/me", {}, token);
+}
+
+
 // Job Actions
 export async function createJobAction(data: JobPostCreate, token: string): Promise<JobPostInDB> {
+  if (!token) throw new Error("Authentication token is required to create a job.");
   const job = await fetchAPI("/jobs/", {
     method: "POST",
     body: JSON.stringify(data),
   }, token);
-  // revalidatePath removed
   return job;
 }
 
-export async function getJobsAction(filters?: JobFilters): Promise<JobPostInDB[]> {
+export async function getJobsAction(filters: JobFilters, token: string | null): Promise<JobPostInDB[]> {
+  if (!token) throw new Error("Authentication token is required to fetch jobs.");
   const queryParams = new URLSearchParams();
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, String(value));
-      }
-    });
-  }
-  // Assuming this is a public endpoint or token is handled by API if always required for GET
-  return fetchAPI(`/jobs/?${queryParams.toString()}`);
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryParams.append(key, String(value));
+    }
+  });
+  return fetchAPI(`/jobs/?${queryParams.toString()}`, {}, token);
 }
 
-export async function getJobByIdAction(jobId: string): Promise<JobPostInDB> {
-  // Assuming this is a public endpoint or token is handled by API if always required for GET
-  return fetchAPI(`/jobs/${jobId}`);
+export async function getJobByIdAction(jobId: string, token: string | null): Promise<JobPostInDB> {
+  if (!token) throw new Error("Authentication token is required to fetch job details.");
+  return fetchAPI(`/jobs/${jobId}`, {}, token);
 }
 
 export async function updateJobAction(jobId: string, data: JobPostUpdate, token: string): Promise<JobPostInDB> {
+  if (!token) throw new Error("Authentication token is required to update a job.");
   const job = await fetchAPI(`/jobs/${jobId}`, {
     method: "PUT",
     body: JSON.stringify(data),
   }, token);
-  // revalidatePath removed
   return job;
 }
 
 export async function deleteJobAction(jobId: string, token: string): Promise<void> {
+  if (!token) throw new Error("Authentication token is required to delete a job.");
   await fetchAPI(`/jobs/${jobId}`, {
     method: "DELETE",
   }, token);
-  // revalidatePath removed
 }
 
 // Suggestion Actions
-export async function getRoleNameSuggestionsAction(): Promise<SuggestionList> {
-  return fetchAPI("/jobs/suggestions/role-names");
+export async function getRoleNameSuggestionsAction(token: string | null): Promise<SuggestionList> {
+  if (!token) throw new Error("Authentication token is required for suggestions.");
+  return fetchAPI("/jobs/suggestions/role-names", {}, token);
 }
 
-export async function getCompanyNameSuggestionsAction(): Promise<SuggestionList> {
-  return fetchAPI("/jobs/suggestions/company-names");
+export async function getCompanyNameSuggestionsAction(token: string | null): Promise<SuggestionList> {
+  if (!token) throw new Error("Authentication token is required for suggestions.");
+  return fetchAPI("/jobs/suggestions/company-names", {}, token);
 }
 
-export async function getLocationSuggestionsAction(): Promise<SuggestionList> {
-  return fetchAPI("/jobs/suggestions/locations");
+export async function getLocationSuggestionsAction(token: string | null): Promise<SuggestionList> {
+  if (!token) throw new Error("Authentication token is required for suggestions.");
+  return fetchAPI("/jobs/suggestions/locations", {}, token);
 }
 
-export async function getDepartmentNameSuggestionsAction(): Promise<SuggestionList> {
-  return fetchAPI("/jobs/suggestions/department-names");
+export async function getDepartmentNameSuggestionsAction(token: string | null): Promise<SuggestionList> {
+  if (!token) throw new Error("Authentication token is required for suggestions.");
+  return fetchAPI("/jobs/suggestions/department-names", {}, token);
 }

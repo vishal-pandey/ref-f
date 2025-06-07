@@ -1,40 +1,54 @@
+
 "use client";
 
 import React, { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'; // Added useRouter, usePathname
 import JobCard from '@/components/jobs/JobCard';
 import JobSearchForm from '@/components/jobs/JobSearchForm';
 
 import { getJobsAction } from '@/lib/actions';
 import type { JobPostInDB, JobFilters } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ListFilter, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-
+import { Loader2, AlertTriangle, ListFilter, ChevronLeft, ChevronRight, ShieldAlert } from 'lucide-react'; // Added ShieldAlert
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardFooter
+import { useAuth } from '@/context/AuthContext'; // Added useAuth
 
 const JOBS_PER_PAGE = 9;
 
 function JobsPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, token, isLoading: authLoading } = useAuth();
+
   const [jobs, setJobs] = useState<JobPostInDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalJobs, setTotalJobs] = useState(0); // Assuming API might provide total or infer from results
+  const [totalJobs, setTotalJobs] = useState(0);
 
   const [filters, setFilters] = useState<JobFilters>({});
 
   useEffect(() => {
+    if (authLoading) return; // Wait for auth state to be determined
+
+    if (!user && !token) {
+      router.push(`/login?redirect=${encodeURIComponent(pathname + searchParams.toString())}`);
+      return;
+    }
+
     const roleName = searchParams.get('RoleName') || undefined;
     const companyName = searchParams.get('CompanyName') || undefined;
     const location = searchParams.get('Location') || undefined;
     const departmentName = searchParams.get('DepartmentName') || undefined;
 
     setFilters({ RoleName: roleName, CompanyName: companyName, Location: location, DepartmentName: departmentName });
-    setCurrentPage(1); // Reset to first page on filter change
-  }, [searchParams]);
+    setCurrentPage(1);
+  }, [searchParams, user, token, authLoading, router, pathname]);
 
   useEffect(() => {
+    if (!token || authLoading) return; // Don't fetch if no token or auth is loading
+
     const fetchJobs = async () => {
       setIsLoading(true);
       setError(null);
@@ -44,20 +58,27 @@ function JobsPageContent() {
           skip: (currentPage - 1) * JOBS_PER_PAGE,
           limit: JOBS_PER_PAGE,
         };
-        const fetchedJobs = await getJobsAction(params);
+        const fetchedJobs = await getJobsAction(params, token);
         setJobs(fetchedJobs);
-        // This is a simplification for totalJobs. A real API would provide a total count.
-        // If fetchedJobs length is less than JOBS_PER_PAGE, it might be the last page.
+        
         if (fetchedJobs.length < JOBS_PER_PAGE) {
             setTotalJobs((currentPage -1) * JOBS_PER_PAGE + fetchedJobs.length);
         } else {
-            // If we got a full page, there might be more. We'd need a total count from API.
-            // For now, just assume there's at least one more page possible if full.
-            setTotalJobs(currentPage * JOBS_PER_PAGE + 1); 
+            // Fetch one more than limit to see if there are more pages
+            const nextPageCheckParams = { ...params, limit: JOBS_PER_PAGE + 1 };
+            const nextPageCheckJobs = await getJobsAction(nextPageCheckParams, token);
+            if (nextPageCheckJobs.length <= JOBS_PER_PAGE) {
+                setTotalJobs((currentPage - 1) * JOBS_PER_PAGE + fetchedJobs.length);
+            } else {
+                 setTotalJobs(currentPage * JOBS_PER_PAGE + 1); // At least one more job on the next page
+            }
         }
 
       } catch (err: any) {
         setError(err.message || 'Failed to fetch jobs.');
+        if (err.message === "Authentication token is required for this action." || err.status === 401 || err.status === 403) {
+             router.push(`/login?redirect=${encodeURIComponent(pathname + searchParams.toString())}`);
+        }
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -65,7 +86,7 @@ function JobsPageContent() {
     };
 
     fetchJobs();
-  }, [filters, currentPage]);
+  }, [filters, currentPage, token, authLoading, router, pathname, searchParams]);
 
   const totalPages = Math.ceil(totalJobs / JOBS_PER_PAGE);
 
@@ -76,7 +97,14 @@ function JobsPageContent() {
     }
   };
   
-  const currentSearchTerm = filters.RoleName || filters.CompanyName || "";
+  if (authLoading || (!user && !token)) { // Show loader while auth is resolving or if redirecting
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <p className="ml-4 text-muted-foreground">Authenticating...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -92,8 +120,6 @@ function JobsPageContent() {
         </CardContent>
       </Card>
 
-      {/* SimilarJobs component removed */}
-
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: JOBS_PER_PAGE }).map((_, index) => (
@@ -106,9 +132,9 @@ function JobsPageContent() {
                 <div className="h-4 bg-muted rounded w-full"></div>
                 <div className="h-4 bg-muted rounded w-5/6"></div>
               </CardContent>
-              <CardFooter>
+              <CardContent className="pt-4"> {/* Adjusted CardFooter to CardContent */}
                 <div className="h-10 bg-muted rounded w-full"></div>
-              </CardFooter>
+              </CardContent>
             </Card>
           ))}
         </div>
@@ -142,7 +168,6 @@ function JobsPageContent() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
-                // Display only a limited number of page buttons for brevity
                 .filter(pageNumber => 
                     pageNumber === 1 || 
                     pageNumber === totalPages || 
@@ -178,7 +203,7 @@ function JobsPageContent() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-[calc(100vh-200px)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[calc(100vh-200px)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /><p className="ml-4 text-muted-foreground">Loading...</p></div>}>
       <JobsPageContent />
     </Suspense>
   );

@@ -1,83 +1,99 @@
+
 "use client";
 
 import type { User, Token } from "@/lib/types";
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { jwtDecode } from "jwt-decode"; // Ensure jwt-decode is installed: npm install jwt-decode
+import { jwtDecode, type JwtPayload } from "jwt-decode";
+import { getCurrentUserAction } from "@/lib/actions";
+import { usePathname, useRouter } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (tokenData: Token) => void;
+  login: (tokenData: Token) => Promise<void>; // Made async
   logout: () => void;
-  isAdmin: boolean; // Simplified admin check
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-interface DecodedToken {
-  sub: string; // Assuming 'sub' is user ID
-  // Add other claims you expect, e.g., email, roles
-  [key: string]: any; 
+interface DecodedToken extends JwtPayload {
+  // Standard claims like 'sub', 'exp' are in JwtPayload
+  // Add custom claims if your JWT has them, e.g.
+  // email?: string;
+  // mobile_number?: string;
+  // For JobConnect, user details are primarily fetched via /users/me
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("authToken");
-    if (storedToken) {
-      try {
-        const decodedToken = jwtDecode<DecodedToken>(storedToken);
-        // Basic check for token expiry
-        if (decodedToken.exp && decodedToken.exp * 1000 > Date.now()) {
-          setToken(storedToken);
-          // Extract user info from token; adapt as per your JWT structure
-          const userData: User = { 
-            id: decodedToken.sub, // Example: subject as user ID
-            email: decodedToken.email || null, // Example: if email is in token
-            mobile_number: decodedToken.mobile_number || null // Example
-          };
-          setUser(userData);
-        } else {
-          localStorage.removeItem("authToken"); // Token expired
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      const storedToken = localStorage.getItem("authToken");
+      if (storedToken) {
+        try {
+          const decodedToken = jwtDecode<DecodedToken>(storedToken);
+          if (decodedToken.exp && decodedToken.exp * 1000 > Date.now()) {
+            setToken(storedToken);
+            const currentUser = await getCurrentUserAction(storedToken);
+            setUser(currentUser);
+          } else {
+            console.log("Stored token expired.");
+            localStorage.removeItem("authToken");
+            setToken(null);
+            setUser(null);
+          }
+        } catch (error) {
+          console.error("Failed to initialize auth from stored token:", error);
+          localStorage.removeItem("authToken");
+          setToken(null);
+          setUser(null);
         }
-      } catch (error) {
-        console.error("Failed to decode token:", error);
-        localStorage.removeItem("authToken");
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+    initializeAuth();
   }, []);
 
-  const login = (tokenData: Token) => {
+  const login = async (tokenData: Token) => {
+    setIsLoading(true);
     localStorage.setItem("authToken", tokenData.access_token);
     setToken(tokenData.access_token);
-     try {
-        const decodedToken = jwtDecode<DecodedToken>(tokenData.access_token);
-        const userData: User = { 
-            id: decodedToken.sub,
-            email: decodedToken.email || null,
-            mobile_number: decodedToken.mobile_number || null
-         };
-        setUser(userData);
-      } catch (error) {
-        console.error("Failed to decode token on login:", error);
-        setUser(null); // Ensure user is null if token is bad
-      }
+    try {
+      const currentUser = await getCurrentUserAction(tokenData.access_token);
+      setUser(currentUser);
+      // Redirect logic after successful login is handled by pages/guards
+    } catch (error) {
+      console.error("Failed to fetch user details after login:", error);
+      // If fetching user fails, revert auth state
+      localStorage.removeItem("authToken");
+      setToken(null);
+      setUser(null);
+      // Optionally, show a toast message to the user
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
     localStorage.removeItem("authToken");
     setToken(null);
     setUser(null);
+    // After logout, always redirect to login page
+    if (pathname !== "/login" && pathname !== "/verify-otp") {
+         router.push("/login");
+    }
   };
 
-  // Simplified admin check: for now, any logged-in user is considered admin.
-  // In a real app, this would involve checking roles from the JWT or a user profile API.
-  const isAdmin = !!user; 
+  const isAdmin = !!user && user.is_admin;
 
   return (
     <AuthContext.Provider value={{ user, token, isLoading, login, logout, isAdmin }}>
