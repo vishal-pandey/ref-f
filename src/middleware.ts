@@ -1,40 +1,37 @@
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// This middleware can be used for more complex auth scenarios like token refreshing,
-// or protecting multiple routes based on roles from the token.
-// For the current setup, AdminAuthGuard client-side component handles basic protection.
-// If httpOnly cookies are used exclusively for session management, this middleware is crucial.
+// This middleware logic is simplified as the 'sessionToken' httpOnly cookie
+// might not be set if auth actions (like verifyOtpAction) are fully client-side
+// and rely on localStorage for token management (via AuthContext).
+// Client-side guards (e.g., AdminAuthGuard) and page-level useEffect hooks
+// will be primarily responsible for route protection and redirection based on auth state.
 
 export function middleware(request: NextRequest) {
-  const sessionToken = request.cookies.get('sessionToken')?.value;
-  const { pathname } = request.nextUrl;
+  // const sessionToken = request.cookies.get('sessionToken')?.value;
+  // const { pathname } = request.nextUrl;
 
-  // Example: Protect all /admin routes if sessionToken is not present or invalid
-  if (pathname.startsWith('/admin')) {
-    if (!sessionToken) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    // Here you could add token validation logic (e.g., using a library like 'jose' for JWT verification)
-    // For simplicity, we are relying on the presence of the token.
-    // Actual validation should happen on API routes or server actions consuming the token.
-  }
-  
-  // Example: Redirect logged-in users from login/verify-otp pages
-  if (sessionToken && (pathname === '/login' || pathname === '/verify-otp')) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
+  // Previous logic for redirecting based on sessionToken cookie:
+  // if (pathname.startsWith('/admin')) {
+  //   if (!sessionToken) {
+  //     const loginUrl = new URL('/login', request.url);
+  //     loginUrl.searchParams.set('redirect', pathname);
+  //     return NextResponse.redirect(loginUrl);
+  //   }
+  // }
+  // if (sessionToken && (pathname === '/login' || pathname === '/verify-otp')) {
+  //   return NextResponse.redirect(new URL('/', request.url));
+  // }
 
+  // For now, allow requests to pass through. Client-side checks will handle auth.
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
   matcher: [
-    '/admin/:path*', // Protect admin routes
-    '/login',         // Redirect if logged in
-    '/verify-otp',    // Redirect if logged in
+    '/admin/:path*',
+    '/login',
+    '/verify-otp',
   ],
 }

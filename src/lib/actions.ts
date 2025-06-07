@@ -1,4 +1,3 @@
-"use server";
 
 import type {
   JobPostCreate,
@@ -12,44 +11,21 @@ import type {
   JobFilters,
 } from "./types";
 import { API_BASE_URL } from "./config";
-import { cookies } from 'next/headers';
-import { revalidatePath } from "next/cache";
 
-async function getAuthToken(): Promise<string | undefined> {
-  // In server actions, if you store token in httpOnly cookie, access it here.
-  // For this example, assuming token might be passed or handled differently for server-to-server.
-  // If called from client components that pass token, use that.
-  // For actions called directly (e.g. after login), token might not be in cookies yet if set client-side.
-  // This is a placeholder; robust token handling depends on where it's stored.
-  // For simplicity, let's assume client will eventually have the token and API calls needing it will manage this.
-  // The provided API uses Bearer tokens, typically sent in Authorization header.
-  // If using cookies for session management by NextAuth.js or similar, it would be different.
-  // For direct external API calls from server actions, the token needs to be retrieved from wherever it's stored securely.
-  // For now, we'll assume some actions need a token passed to them or fetched from secure storage.
-
-  // The API spec includes "security": [{ "Bearer": [] }] for protected routes.
-  // We need a way to get this Bearer token.
-  // If login action sets an httpOnly cookie, it can be read here.
-  // For this example, we'll assume the token is stored in a cookie named 'authToken'
-  // This is a simplified approach. In production, use secure httpOnly cookies.
-  const cookieStore = cookies();
-  return cookieStore.get('sessionToken')?.value;
-}
-
+// Removed "use server";, cookies, revalidatePath as these are now client-side functions
 
 async function fetchAPI(
   endpoint: string,
   options: RequestInit = {},
-  token?: string
+  token?: string | null // Token is now explicitly passed
 ): Promise<any> {
-  const headers = {
+  const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...options.headers,
   };
 
-  const authToken = token || await getAuthToken();
-  if (authToken) {
-    (headers as Record<string, string>)["Authorization"] = `Bearer ${authToken}`;
+  if (token) {
+    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -87,25 +63,9 @@ export async function verifyOtpAction(data: OTPVerify): Promise<Token> {
     method: "POST",
     body: JSON.stringify(data),
   });
-  // Store token in an httpOnly cookie for server-side access
-  // This is more secure than localStorage for tokens.
-  if (tokenData.access_token) {
-    cookies().set('sessionToken', tokenData.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
-  }
+  // Token is handled by AuthContext on the client, no httpOnly cookie setting here
   return tokenData;
 }
-
-export async function logoutAction(): Promise<void> {
-  cookies().delete('sessionToken');
-  // Optionally call a backend logout endpoint if it exists
-  // await fetchAPI("/auth/logout", { method: "POST" });
-}
-
 
 // Job Actions
 export async function createJobAction(data: JobPostCreate, token: string): Promise<JobPostInDB> {
@@ -113,8 +73,7 @@ export async function createJobAction(data: JobPostCreate, token: string): Promi
     method: "POST",
     body: JSON.stringify(data),
   }, token);
-  revalidatePath("/admin");
-  revalidatePath("/");
+  // revalidatePath removed
   return job;
 }
 
@@ -127,10 +86,12 @@ export async function getJobsAction(filters?: JobFilters): Promise<JobPostInDB[]
       }
     });
   }
+  // Assuming this is a public endpoint or token is handled by API if always required for GET
   return fetchAPI(`/jobs/?${queryParams.toString()}`);
 }
 
 export async function getJobByIdAction(jobId: string): Promise<JobPostInDB> {
+  // Assuming this is a public endpoint or token is handled by API if always required for GET
   return fetchAPI(`/jobs/${jobId}`);
 }
 
@@ -139,9 +100,7 @@ export async function updateJobAction(jobId: string, data: JobPostUpdate, token:
     method: "PUT",
     body: JSON.stringify(data),
   }, token);
-  revalidatePath(`/admin`);
-  revalidatePath(`/jobs/${jobId}`);
-  revalidatePath("/");
+  // revalidatePath removed
   return job;
 }
 
@@ -149,8 +108,7 @@ export async function deleteJobAction(jobId: string, token: string): Promise<voi
   await fetchAPI(`/jobs/${jobId}`, {
     method: "DELETE",
   }, token);
-  revalidatePath("/admin");
-  revalidatePath("/");
+  // revalidatePath removed
 }
 
 // Suggestion Actions
