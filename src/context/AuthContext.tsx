@@ -14,8 +14,8 @@ interface AuthContextType {
   login: (tokenData: Token) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
-  isProfileComplete: boolean; // Added
-  updateCurrentUser: (updatedUserData: User) => void; // Added
+  isProfileComplete: boolean; 
+  updateCurrentUser: (updatedUserData: User) => void; 
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,7 +92,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const isAdmin = !!user && user.is_admin;
-  const isProfileComplete = !!(user && user.full_name && user.mobile_number);
+  
+  // Updated isProfileComplete logic
+  const isProfileComplete = !!(
+    user &&
+    user.full_name &&
+    user.full_name.trim() !== "" &&
+    user.mobile_number &&
+    user.mobile_number.trim() !== ""
+  );
 
   return (
     <AuthContext.Provider value={{ user, token, isLoading, login, logout, isAdmin, isProfileComplete, updateCurrentUser }}>
@@ -108,3 +116,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
