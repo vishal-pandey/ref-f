@@ -193,7 +193,7 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
           </div>
            <div>
             <Label htmlFor="ReferralStatus">Referral Available Status</Label>
-            <Controller
+            <Controller<JobFormValues, "ReferralStatus">
                 name="ReferralStatus"
                 control={control}
                 render={({ field }) => (
