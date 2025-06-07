@@ -10,7 +10,7 @@ import type {
   SuggestionList,
   JobFilters,
   User,
-  UserUpdate, // Added UserUpdate
+  UserUpdate,
 } from "./types";
 import { API_BASE_URL } from "./config";
 
@@ -26,12 +26,7 @@ async function fetchAPI(
 
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
-  } else if (!endpoint.startsWith("/auth/")) {
-    // For non-auth endpoints, if a token is expected by the API but not provided,
-    // the API itself should return a 401/403, which fetchAPI will then throw as an error.
-    // Explicitly throwing here might be too restrictive if some non-auth endpoints become public later.
   }
-
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -40,13 +35,53 @@ async function fetchAPI(
 
   if (!response.ok) {
     let errorData;
+    let responseBodyTextForErrorMessage = null;
+
     try {
+      // Try to parse JSON first.
+      // Clone the response if we might need to read the body again (e.g., for text).
+      const clonedResponse = response.clone();
       errorData = await response.json();
+      
+      // If JSON parsing was successful but yielded an empty object,
+      // try to get raw text to see if it's more informative.
+      if (typeof errorData === 'object' && errorData !== null && Object.keys(errorData).length === 0) {
+        responseBodyTextForErrorMessage = await clonedResponse.text();
+      }
+
     } catch (e) {
-      errorData = { message: response.statusText };
+      // If JSON parsing fails, try to get the response as text
+      try {
+        // response.text() can only be called once. If .json() failed, the body is still available.
+        // If .json() succeeded but was {}, clonedResponse.text() was used above.
+        // This path is for when response.json() itself threw an error.
+        responseBodyTextForErrorMessage = await response.text(); 
+      } catch (textError) {
+        responseBodyTextForErrorMessage = "Could not read error response body.";
+      }
+      // Construct a minimal errorData if JSON parsing failed
+      errorData = { message: responseBodyTextForErrorMessage || response.statusText || `HTTP Error ${response.status}` };
     }
-    console.error(`API Error (${response.status}) on ${endpoint}:`, errorData);
-    const errorMessage = errorData.detail?.[0]?.msg || errorData.detail || errorData.message || `Request failed with status ${response.status}`;
+
+    // If errorData is an empty object from a successful .json() call,
+    // make the logged object more informative using statusText.
+    const loggedErrorData = (typeof errorData === 'object' && errorData !== null && Object.keys(errorData).length === 0 && response.statusText)
+      ? { message: response.statusText, originalData: errorData, rawText: responseBodyTextForErrorMessage }
+      : errorData;
+
+    console.error(`API Error (${response.status}) on ${endpoint}:`, loggedErrorData);
+    
+    // Construct a more detailed error message
+    const detailMessage = 
+      loggedErrorData?.detail?.[0]?.msg || // FastAPI validation structure
+      loggedErrorData?.detail ||           // FastAPI simple string detail
+      loggedErrorData?.message ||          // General message property
+      (responseBodyTextForErrorMessage && responseBodyTextForErrorMessage.trim() !== "{}" ? responseBodyTextForErrorMessage : null) || // Use raw text if it's not just an empty JSON
+      response.statusText ||             // Fallback to HTTP status text
+      `Request failed`;                  // Ultimate fallback part
+
+    const errorMessage = `${detailMessage} (Status: ${response.status})`;
+
     throw new Error(errorMessage);
   }
   
