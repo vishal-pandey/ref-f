@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -21,12 +22,19 @@ export default function Header() {
 
   const handleLogout = () => {
     logout();
-    router.push("/");
+    router.push("/"); // Ensure redirect to home after logout, AuthContext also handles /login redirect
   };
 
-  const getInitials = (email?: string | null, mobile?: string | null) => {
+  const getInitials = (fullName?: string | null, email?: string | null, mobile?: string | null) => {
+    if (fullName) {
+        const names = fullName.split(' ');
+        if (names.length > 1) {
+            return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+        }
+        return fullName.substring(0, 2).toUpperCase();
+    }
     if (email) return email.substring(0, 2).toUpperCase();
-    if (mobile) return mobile.substring(mobile.length - 4, mobile.length - 2).toUpperCase();
+    if (mobile) return mobile.substring(mobile.length - 4, mobile.length - 2).toUpperCase(); // Less ideal, but a fallback
     return "U";
   };
   
@@ -56,8 +64,8 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={`https://placehold.co/100x100.png?text=${getInitials(user.email, user.mobile_number)}`} alt={user.email || user.mobile_number || "User"} data-ai-hint="avatar user" />
-                    <AvatarFallback>{getInitials(user.email, user.mobile_number)}</AvatarFallback>
+                    <AvatarImage src={`https://placehold.co/100x100.png?text=${getInitials(user.full_name, user.email, user.mobile_number)}`} alt={user.full_name || user.email || user.mobile_number || "User"} data-ai-hint="avatar user" />
+                    <AvatarFallback>{getInitials(user.full_name, user.email, user.mobile_number)}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -65,18 +73,18 @@ export default function Header() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {user.email || user.mobile_number}
+                      {user.full_name || user.email || user.mobile_number}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      User
+                      User {isAdmin ? '(Admin)' : ''}
                     </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {/* <DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => router.push('/complete-profile')}>
                   <UserCircle className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem> */}
+                  <span>My Profile</span>
+                </DropdownMenuItem>
                 {isAdmin && (
                    <DropdownMenuItem onClick={() => router.push('/admin')}>
                     <UserCog className="mr-2 h-4 w-4" />

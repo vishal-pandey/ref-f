@@ -11,19 +11,17 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (tokenData: Token) => Promise<void>; // Made async
+  login: (tokenData: Token) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
+  isProfileComplete: boolean; // Added
+  updateCurrentUser: (updatedUserData: User) => void; // Added
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface DecodedToken extends JwtPayload {
   // Standard claims like 'sub', 'exp' are in JwtPayload
-  // Add custom claims if your JWT has them, e.g.
-  // email?: string;
-  // mobile_number?: string;
-  // For JobConnect, user details are primarily fetched via /users/me
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -70,14 +68,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const currentUser = await getCurrentUserAction(tokenData.access_token);
       setUser(currentUser);
-      // Redirect logic after successful login is handled by pages/guards
     } catch (error) {
       console.error("Failed to fetch user details after login:", error);
-      // If fetching user fails, revert auth state
       localStorage.removeItem("authToken");
       setToken(null);
       setUser(null);
-      // Optionally, show a toast message to the user
     } finally {
       setIsLoading(false);
     }
@@ -87,16 +82,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("authToken");
     setToken(null);
     setUser(null);
-    // After logout, always redirect to login page
-    if (pathname !== "/login" && pathname !== "/verify-otp") {
+    if (pathname !== "/login" && pathname !== "/verify-otp" && pathname !== "/complete-profile") {
          router.push("/login");
     }
   };
+  
+  const updateCurrentUser = (updatedUserData: User) => {
+    setUser(updatedUserData);
+  };
 
   const isAdmin = !!user && user.is_admin;
+  const isProfileComplete = !!(user && user.full_name && user.mobile_number);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, isAdmin }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, isAdmin, isProfileComplete, updateCurrentUser }}>
       {children}
     </AuthContext.Provider>
   );

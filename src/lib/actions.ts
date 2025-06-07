@@ -10,6 +10,7 @@ import type {
   SuggestionList,
   JobFilters,
   User,
+  UserUpdate, // Added UserUpdate
 } from "./types";
 import { API_BASE_URL } from "./config";
 
@@ -25,11 +26,10 @@ async function fetchAPI(
 
   if (token) {
     (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
-  } else if (!endpoint.startsWith("/auth/")) { // Do not throw for auth endpoints themselves
-    // Throw an error if token is required but not provided for non-auth endpoints
-    // This check assumes all non-auth endpoints now require a token
-    // console.warn(`Token not provided for protected endpoint: ${endpoint}`);
-    // throw new Error("Authentication token is required for this action.");
+  } else if (!endpoint.startsWith("/auth/")) {
+    // For non-auth endpoints, if a token is expected by the API but not provided,
+    // the API itself should return a 401/403, which fetchAPI will then throw as an error.
+    // Explicitly throwing here might be too restrictive if some non-auth endpoints become public later.
   }
 
 
@@ -76,6 +76,14 @@ export async function verifyOtpAction(data: OTPVerify): Promise<Token> {
 export async function getCurrentUserAction(token: string): Promise<User> {
   if (!token) throw new Error("Authentication token is required to fetch user details.");
   return fetchAPI("/users/me", {}, token);
+}
+
+export async function updateUserAction(data: UserUpdate, token: string): Promise<User> {
+  if (!token) throw new Error("Authentication token is required to update user details.");
+  return fetchAPI("/users/me", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  }, token);
 }
 
 

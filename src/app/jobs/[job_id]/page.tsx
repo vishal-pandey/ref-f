@@ -2,10 +2,10 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useParams, useRouter, usePathname } from "next/navigation"; // Added usePathname
+import { useParams, useRouter, usePathname } from "next/navigation";
 import type { JobPostInDB } from "@/lib/types";
 import { getJobByIdAction } from "@/lib/actions";
-import { useAuth } from "@/context/AuthContext"; // Added useAuth
+import { useAuth } from "@/context/AuthContext";
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,17 +19,24 @@ function JobDetailsContent() {
   const router = useRouter();
   const pathname = usePathname();
   const jobId = typeof params.job_id === 'string' ? params.job_id : '';
-  const { user, token, isLoading: authLoading } = useAuth();
+  const { user, token, isLoading: authLoading, isProfileComplete } = useAuth();
 
   const [job, setJob] = useState<JobPostInDB | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading) return; // Wait for auth state
+    if (authLoading) return;
 
-    if (!user && !token) {
-      router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+    const redirectPath = pathname; // For job details, redirect is simpler
+
+    if (!user || !token) {
+      router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
+      return;
+    }
+
+    if (user && !isProfileComplete) {
+      router.push(`/complete-profile?redirect=${encodeURIComponent(redirectPath)}`);
       return;
     }
     
@@ -39,23 +46,16 @@ function JobDetailsContent() {
       return;
     }
     
-    if (!token) { // Should be caught by above, but as a safeguard
-      setError("Authentication required.");
-      setIsLoading(false);
-      return;
-    }
-
-
     const fetchJobDetails = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedJob = await getJobByIdAction(jobId, token);
+        const fetchedJob = await getJobByIdAction(jobId, token); // Token is now guaranteed by checks above
         setJob(fetchedJob);
       } catch (err: any) {
         setError(err.message || "Failed to fetch job details.");
         if (err.message === "Authentication token is required for this action." || err.status === 401 || err.status === 403) {
-             router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+             router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
         }
         console.error(err);
       } finally {
@@ -64,13 +64,15 @@ function JobDetailsContent() {
     };
 
     fetchJobDetails();
-  }, [jobId, token, user, authLoading, router, pathname]);
+  }, [jobId, token, user, authLoading, router, pathname, isProfileComplete]);
 
-  if (isLoading || authLoading || (!user && !token && !error)) { // Show loader while auth resolving or if redirecting (and not yet errored)
+  if (authLoading || (!authLoading && (!user || !token)) || (!authLoading && user && !isProfileComplete)) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
-         { (authLoading || (!user && !token)) && <p className="ml-4 text-muted-foreground">Authenticating...</p>}
+         <p className="ml-4 text-muted-foreground">
+            {authLoading ? "Authenticating..." : (user && !isProfileComplete) ? "Checking profile..." : "Loading..."}
+        </p>
       </div>
     );
   }
@@ -89,6 +91,15 @@ function JobDetailsContent() {
   }
 
   if (!job) {
+     // This case might be hit briefly if fetchJobDetails hasn't completed yet, or if job genuinely not found
+    if (isLoading) { // If still loading due to fetchJobDetails
+         return (
+            <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+                <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                <p className="ml-4 text-muted-foreground">Loading job details...</p>
+            </div>
+        );
+    }
     return (
       <div className="text-center py-10 max-w-2xl mx-auto">
         <p className="text-xl">Job not found.</p>

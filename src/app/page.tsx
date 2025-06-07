@@ -2,16 +2,16 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation'; // Added useRouter, usePathname
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import JobCard from '@/components/jobs/JobCard';
 import JobSearchForm from '@/components/jobs/JobSearchForm';
 
 import { getJobsAction } from '@/lib/actions';
 import type { JobPostInDB, JobFilters } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ListFilter, ChevronLeft, ChevronRight, ShieldAlert } from 'lucide-react'; // Added ShieldAlert
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardFooter
-import { useAuth } from '@/context/AuthContext'; // Added useAuth
+import { Loader2, AlertTriangle, ListFilter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { useAuth } from '@/context/AuthContext';
 
 const JOBS_PER_PAGE = 9;
 
@@ -19,7 +19,7 @@ function JobsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { user, token, isLoading: authLoading } = useAuth();
+  const { user, token, isLoading: authLoading, isProfileComplete } = useAuth();
 
   const [jobs, setJobs] = useState<JobPostInDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,10 +30,18 @@ function JobsPageContent() {
   const [filters, setFilters] = useState<JobFilters>({});
 
   useEffect(() => {
-    if (authLoading) return; // Wait for auth state to be determined
+    if (authLoading) return; 
 
-    if (!user && !token) {
-      router.push(`/login?redirect=${encodeURIComponent(pathname + searchParams.toString())}`);
+    const currentQuery = searchParams.toString();
+    const redirectPath = pathname + (currentQuery ? `?${currentQuery}` : '');
+
+    if (!user || !token) {
+      router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
+      return;
+    }
+
+    if (user && !isProfileComplete) {
+      router.push(`/complete-profile?redirect=${encodeURIComponent(redirectPath)}`);
       return;
     }
 
@@ -43,11 +51,11 @@ function JobsPageContent() {
     const departmentName = searchParams.get('DepartmentName') || undefined;
 
     setFilters({ RoleName: roleName, CompanyName: companyName, Location: location, DepartmentName: departmentName });
-    setCurrentPage(1);
-  }, [searchParams, user, token, authLoading, router, pathname]);
+    setCurrentPage(1); // Reset to page 1 when filters change
+  }, [searchParams, user, token, authLoading, router, pathname, isProfileComplete]);
 
   useEffect(() => {
-    if (!token || authLoading) return; // Don't fetch if no token or auth is loading
+    if (!token || authLoading || (user && !isProfileComplete)) return; 
 
     const fetchJobs = async () => {
       setIsLoading(true);
@@ -64,20 +72,21 @@ function JobsPageContent() {
         if (fetchedJobs.length < JOBS_PER_PAGE) {
             setTotalJobs((currentPage -1) * JOBS_PER_PAGE + fetchedJobs.length);
         } else {
-            // Fetch one more than limit to see if there are more pages
-            const nextPageCheckParams = { ...params, limit: JOBS_PER_PAGE + 1 };
+            const nextPageCheckParams = { ...filters, skip: currentPage * JOBS_PER_PAGE, limit: 1 }; // Check if at least one more exists
             const nextPageCheckJobs = await getJobsAction(nextPageCheckParams, token);
-            if (nextPageCheckJobs.length <= JOBS_PER_PAGE) {
-                setTotalJobs((currentPage - 1) * JOBS_PER_PAGE + fetchedJobs.length);
-            } else {
-                 setTotalJobs(currentPage * JOBS_PER_PAGE + 1); // At least one more job on the next page
+            if (nextPageCheckJobs.length === 0) { // No more jobs on the next page
+                setTotalJobs(currentPage * JOBS_PER_PAGE);
+            } else { // There are more jobs
+                 setTotalJobs(currentPage * JOBS_PER_PAGE + 1); 
             }
         }
 
       } catch (err: any) {
         setError(err.message || 'Failed to fetch jobs.');
         if (err.message === "Authentication token is required for this action." || err.status === 401 || err.status === 403) {
-             router.push(`/login?redirect=${encodeURIComponent(pathname + searchParams.toString())}`);
+             const currentQuery = searchParams.toString();
+             const redirectPath = pathname + (currentQuery ? `?${currentQuery}` : '');
+             router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
         }
         console.error(err);
       } finally {
@@ -86,7 +95,7 @@ function JobsPageContent() {
     };
 
     fetchJobs();
-  }, [filters, currentPage, token, authLoading, router, pathname, searchParams]);
+  }, [filters, currentPage, token, authLoading, user, isProfileComplete, router, pathname, searchParams]);
 
   const totalPages = Math.ceil(totalJobs / JOBS_PER_PAGE);
 
@@ -97,11 +106,13 @@ function JobsPageContent() {
     }
   };
   
-  if (authLoading || (!user && !token)) { // Show loader while auth is resolving or if redirecting
+  if (authLoading || (!authLoading && (!user || !token)) || (!authLoading && user && !isProfileComplete)) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        <p className="ml-4 text-muted-foreground">Authenticating...</p>
+        <p className="ml-4 text-muted-foreground">
+          {authLoading ? "Authenticating..." : (user && !isProfileComplete) ? "Checking profile..." : "Loading..."}
+        </p>
       </div>
     );
   }
@@ -132,9 +143,9 @@ function JobsPageContent() {
                 <div className="h-4 bg-muted rounded w-full"></div>
                 <div className="h-4 bg-muted rounded w-5/6"></div>
               </CardContent>
-              <CardContent className="pt-4"> {/* Adjusted CardFooter to CardContent */}
+              <CardFooter className="pt-4">
                 <div className="h-10 bg-muted rounded w-full"></div>
-              </CardContent>
+              </CardFooter>
             </Card>
           ))}
         </div>
@@ -171,11 +182,12 @@ function JobsPageContent() {
                 .filter(pageNumber => 
                     pageNumber === 1 || 
                     pageNumber === totalPages || 
-                    (pageNumber >= currentPage -1 && pageNumber <= currentPage + 1)
+                    (pageNumber >= currentPage -1 && pageNumber <= currentPage + 1) ||
+                    (totalPages <= 5) 
                 )
                 .map((pageNumber, index, arr) => (
                   <React.Fragment key={pageNumber}>
-                    {index > 0 && arr[index-1] !== pageNumber -1 && pageNumber !== currentPage -1 && pageNumber !== currentPage && pageNumber !== currentPage+1 && <span className="text-muted-foreground">...</span> }
+                    {index > 0 && arr[index-1] !== pageNumber -1 && pageNumber !== currentPage -1 && pageNumber !== currentPage && pageNumber !== currentPage+1 && totalPages > 5 && <span className="text-muted-foreground">...</span> }
                     <Button
                       key={pageNumber}
                       variant={currentPage === pageNumber ? "default" : "outline"}
@@ -189,7 +201,7 @@ function JobsPageContent() {
                 variant="outline"
                 size="icon"
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={currentPage === totalPages || totalJobs <= currentPage * JOBS_PER_PAGE}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>

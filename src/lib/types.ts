@@ -1,3 +1,4 @@
+
 export interface JobPostCreate {
   RoleName: string;
   DepartmentName?: string | null;
@@ -60,13 +61,19 @@ export interface HTTPValidationError {
 }
 
 export interface User {
-  id: number; // Changed from string to number
+  id: number;
   email?: string | null;
   mobile_number?: string | null;
+  full_name?: string | null; // Added full_name
   is_active: boolean;
   is_admin: boolean;
   created_at: string; // date-time
   updated_at: string; // date-time
+}
+
+export interface UserUpdate {
+  full_name?: string | null;
+  mobile_number?: string | null;
 }
 
 export interface JobFilters {
