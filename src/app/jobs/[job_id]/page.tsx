@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { JobPostInDB } from "@/lib/types";
 import { getJobByIdAction } from "@/lib/actions";
-import TrainingResources from "@/components/jobs/TrainingResources";
+
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -156,7 +156,7 @@ function JobDetailsContent() {
         </CardContent>
       </Card>
 
-      <TrainingResources jobDescription={job.JobDescription} />
+      {/* TrainingResources component removed */}
     </div>
   );
 }

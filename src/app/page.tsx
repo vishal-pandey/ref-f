@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import JobCard from '@/components/jobs/JobCard';
 import JobSearchForm from '@/components/jobs/JobSearchForm';
-import SimilarJobs from '@/components/jobs/SimilarJobs';
+
 import { getJobsAction } from '@/lib/actions';
 import type { JobPostInDB, JobFilters } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -92,7 +92,7 @@ function JobsPageContent() {
         </CardContent>
       </Card>
 
-      {currentSearchTerm && <SimilarJobs userInput={currentSearchTerm} />}
+      {/* SimilarJobs component removed */}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -183,4 +183,3 @@ export default function HomePage() {
     </Suspense>
   );
 }
-
