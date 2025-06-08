@@ -121,7 +121,7 @@ export default function LoginPage() {
     <div className="flex items-center justify-center py-12">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline text-center">Welcome to JobConnect</CardTitle>
+          <CardTitle className="text-3xl font-headline text-center">Welcome to ReferralNetwork</CardTitle>
           <CardDescription className="text-center">
             Enter your email or mobile number to receive an OTP.
           </CardDescription>

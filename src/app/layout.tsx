@@ -6,8 +6,8 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
-  title: "JobConnect",
-  description: "Find your next career opportunity.",
+  title: "ReferralNetwork",
+  description: "Connect and discover opportunities through your network.",
 };
 
 export default function RootLayout({

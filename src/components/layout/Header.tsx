@@ -43,7 +43,7 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="flex items-center space-x-2 text-primary hover:text-primary/90 transition-colors">
           <Briefcase className="h-8 w-8" />
-          <h1 className="text-2xl font-headline font-semibold">JobConnect</h1>
+          <h1 className="text-2xl font-headline font-semibold">ReferralNetwork</h1>
         </Link>
         <nav className="flex items-center space-x-4">
           <Button variant="ghost" asChild>

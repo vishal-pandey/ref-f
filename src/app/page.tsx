@@ -3,17 +3,17 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import JobListItem from '@/components/jobs/JobListItem'; // Changed from JobCard
+import JobListItem from '@/components/jobs/JobListItem'; 
 import JobSearchForm from '@/components/jobs/JobSearchForm';
 
 import { getJobsAction } from '@/lib/actions';
 import type { JobPostInDB, JobFilters } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, ListFilter, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 
-const JOBS_PER_PAGE = 10; // Can show more items in list view
+const JOBS_PER_PAGE = 10; 
 
 function JobsPageContent() {
   const searchParams = useSearchParams();
@@ -51,7 +51,7 @@ function JobsPageContent() {
     const departmentName = searchParams.get('DepartmentName') || undefined;
 
     setFilters({ RoleName: roleName, CompanyName: companyName, Location: location, DepartmentName: departmentName });
-    setCurrentPage(1); // Reset to page 1 when filters change
+    setCurrentPage(1); 
   }, [searchParams, user, token, authLoading, router, pathname, isProfileComplete]);
 
   useEffect(() => {
@@ -100,7 +100,7 @@ function JobsPageContent() {
   const totalPages = Math.ceil(totalJobs / JOBS_PER_PAGE);
 
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && (newPage <= totalPages || totalJobs > (currentPage * JOBS_PER_PAGE) ) ) { // Allow going to next page if more jobs might exist
+    if (newPage >= 1 && (newPage <= totalPages || totalJobs > (currentPage * JOBS_PER_PAGE) ) ) { 
       setCurrentPage(newPage);
       window.scrollTo(0, 0);
     }
@@ -121,9 +121,9 @@ function JobsPageContent() {
     <div className="space-y-8">
       <Card className="shadow-none border-none bg-transparent">
         <CardHeader className="text-center px-0">
-          <CardTitle className="text-4xl md:text-5xl font-headline tracking-tight">Find Your Next Opportunity</CardTitle>
+          <CardTitle className="text-4xl md:text-5xl font-headline tracking-tight">Tap into Your Network for Opportunities</CardTitle>
           <CardDescription className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Browse through the latest job openings or use the filters to narrow down your search.
+            Browse jobs posted by your connections or use filters to find relevant roles.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">
@@ -160,12 +160,12 @@ function JobsPageContent() {
         </div>
       ) : (
         <>
-          <div className="space-y-4"> {/* Changed from grid to space-y for list view */}
+          <div className="space-y-4"> 
             {jobs.map((job) => (
-              <JobListItem key={job.id} job={job} /> // Changed from JobCard
+              <JobListItem key={job.id} job={job} /> 
             ))}
           </div>
-          {totalPages > 0 && jobs.length > 0 && ( // only show pagination if there are jobs and more than one potential page
+          {totalPages > 0 && jobs.length > 0 && ( 
             <div className="flex justify-center items-center space-x-2 mt-8">
               <Button
                 variant="outline"
