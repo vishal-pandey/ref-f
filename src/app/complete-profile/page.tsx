@@ -155,9 +155,5 @@ function CompleteProfileContent() {
 }
 
 export default function CompleteProfilePage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-[calc(100vh-200px)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>}>
-      <CompleteProfileContent />
-    </Suspense>
-  );
+ return <CompleteProfileContent />;
 }
