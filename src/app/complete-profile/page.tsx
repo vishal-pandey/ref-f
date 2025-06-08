@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
@@ -155,5 +154,9 @@ function CompleteProfileContent() {
 }
 
 export default function CompleteProfilePage() {
- return <CompleteProfileContent />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CompleteProfileContent />
+    </Suspense>
+  );
 }
