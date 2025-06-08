@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +16,8 @@ import type { UserUpdate } from "@/lib/types";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2, UserSquare, Phone } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 const profileSchema = z.object({
   full_name: z.string().min(1, "Full name is required").max(100, "Full name is too long"),
   mobile_number: z.string().min(1, "Mobile number is required")
@@ -24,7 +26,7 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-export default function CompleteProfilePage() {
+function CompleteProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -43,7 +45,7 @@ export default function CompleteProfilePage() {
   useEffect(() => {
     if (!authContextLoading) {
       if (!user || !token) {
-        router.push("/login"); 
+        router.push("/login");
       } else if (isProfileComplete) {
         const redirect = searchParams.get("redirect") || "/";
         router.push(redirect);
@@ -62,7 +64,7 @@ export default function CompleteProfilePage() {
     setIsSubmitting(true);
     try {
       const updatedUser = await updateUserAction(data, token);
-      updateCurrentUser(updatedUser); 
+      updateCurrentUser(updatedUser);
       toast({
         title: "Profile Updated",
         description: "Your profile information has been successfully updated.",
@@ -87,7 +89,7 @@ export default function CompleteProfilePage() {
       </div>
     );
   }
-  
+
   if (!authContextLoading && user && isProfileComplete) {
      return (
       <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
@@ -149,5 +151,13 @@ export default function CompleteProfilePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CompleteProfilePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[calc(100vh-200px)]"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>}>
+      <CompleteProfileContent />
+    </Suspense>
   );
 }
