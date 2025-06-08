@@ -17,15 +17,15 @@ export default function JobListItem({ job }: JobListItemProps) {
   const timeAgo = postingDate ? formatDistanceToNow(postingDate, { addSuffix: true }) : 'N/A';
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors duration-200">
-      <div className="flex-grow mb-2 sm:mb-0 sm:mr-3">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors duration-200">
+      <div className="flex-grow mb-4 sm:mb-0 sm:mr-4">
         <Link href={`/jobs/${job.id}`} className="group">
-          <h3 className="text-lg font-semibold text-primary group-hover:underline">{job.RoleName}</h3>
+          <h3 className="text-xl font-semibold text-primary group-hover:underline">{job.RoleName}</h3>
         </Link>
-        <div className="text-sm text-muted-foreground flex items-center mt-0.5">
+        <div className="text-sm text-muted-foreground flex items-center mt-1">
           <Building className="h-4 w-4 mr-1.5 shrink-0" /> {job.CompanyName}
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground mt-1.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-2">
           <div className="flex items-center">
             <MapPin className="h-3 w-3 mr-1 shrink-0" />
             <span>{job.Location || "Not specified"}</span>
@@ -42,11 +42,11 @@ export default function JobListItem({ job }: JobListItemProps) {
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 flex-shrink-0 mt-2 sm:mt-0">
+      <div className="flex flex-col items-start sm:items-end sm:space-y-2 flex-shrink-0">
         {job.ReferralStatus && (
           <Badge
             variant={job.ReferralStatus.toLowerCase() === 'yes' ? 'default' : 'secondary'}
-            className="text-xs sm:order-1 py-0.5 px-2" // Adjusted padding for badge
+            className="text-xs capitalize"
           >
             {job.ReferralStatus.toLowerCase() === 'yes' ?
               <CheckCircle className="h-3 w-3 mr-1" /> :
@@ -56,7 +56,7 @@ export default function JobListItem({ job }: JobListItemProps) {
             Referral: {job.ReferralStatus}
           </Badge>
         )}
-        <Button asChild size="sm" className="w-full sm:w-auto sm:order-2 bg-accent hover:bg-accent/90 text-accent-foreground h-8 px-3">
+        <Button asChild size="sm" className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
           <Link href={`/jobs/${job.id}`}>
             View Details <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
           </Link>
