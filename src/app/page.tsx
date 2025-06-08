@@ -3,17 +3,17 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import JobCard from '@/components/jobs/JobCard';
+import JobListItem from '@/components/jobs/JobListItem'; // Changed from JobCard
 import JobSearchForm from '@/components/jobs/JobSearchForm';
 
 import { getJobsAction } from '@/lib/actions';
 import type { JobPostInDB, JobFilters } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, ListFilter, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 
-const JOBS_PER_PAGE = 9;
+const JOBS_PER_PAGE = 10; // Can show more items in list view
 
 function JobsPageContent() {
   const searchParams = useSearchParams();
@@ -72,11 +72,11 @@ function JobsPageContent() {
         if (fetchedJobs.length < JOBS_PER_PAGE) {
             setTotalJobs((currentPage -1) * JOBS_PER_PAGE + fetchedJobs.length);
         } else {
-            const nextPageCheckParams = { ...filters, skip: currentPage * JOBS_PER_PAGE, limit: 1 }; // Check if at least one more exists
+            const nextPageCheckParams = { ...filters, skip: currentPage * JOBS_PER_PAGE, limit: 1 };
             const nextPageCheckJobs = await getJobsAction(nextPageCheckParams, token);
-            if (nextPageCheckJobs.length === 0) { // No more jobs on the next page
+            if (nextPageCheckJobs.length === 0) { 
                 setTotalJobs(currentPage * JOBS_PER_PAGE);
-            } else { // There are more jobs
+            } else { 
                  setTotalJobs(currentPage * JOBS_PER_PAGE + 1); 
             }
         }
@@ -100,7 +100,7 @@ function JobsPageContent() {
   const totalPages = Math.ceil(totalJobs / JOBS_PER_PAGE);
 
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    if (newPage >= 1 && (newPage <= totalPages || totalJobs > (currentPage * JOBS_PER_PAGE) ) ) { // Allow going to next page if more jobs might exist
       setCurrentPage(newPage);
       window.scrollTo(0, 0);
     }
@@ -132,21 +132,18 @@ function JobsPageContent() {
       </Card>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
           {Array.from({ length: JOBS_PER_PAGE }).map((_, index) => (
-            <Card key={index} className="animate-pulse">
-              <CardHeader>
-                <div className="h-6 bg-muted rounded w-3/4"></div>
-                <div className="h-4 bg-muted rounded w-1/2 mt-2"></div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="h-4 bg-muted rounded w-full"></div>
-                <div className="h-4 bg-muted rounded w-5/6"></div>
-              </CardContent>
-              <CardFooter className="pt-4">
-                <div className="h-10 bg-muted rounded w-full"></div>
-              </CardFooter>
-            </Card>
+            <div key={index} className="p-4 border rounded-lg animate-pulse">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1 space-y-3 py-1">
+                  <div className="h-5 bg-muted rounded w-3/4"></div>
+                  <div className="h-4 bg-muted rounded w-1/2"></div>
+                  <div className="h-3 bg-muted rounded w-5/6"></div>
+                </div>
+                <div className="h-8 w-24 bg-muted rounded"></div>
+              </div>
+            </div>
           ))}
         </div>
       ) : error ? (
@@ -163,18 +160,19 @@ function JobsPageContent() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-4"> {/* Changed from grid to space-y for list view */}
             {jobs.map((job) => (
-              <JobCard key={job.id} job={job} />
+              <JobListItem key={job.id} job={job} /> // Changed from JobCard
             ))}
           </div>
-          {totalPages > 1 && (
+          {totalPages > 0 && jobs.length > 0 && ( // only show pagination if there are jobs and more than one potential page
             <div className="flex justify-center items-center space-x-2 mt-8">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
+                aria-label="Go to previous page"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -187,11 +185,13 @@ function JobsPageContent() {
                 )
                 .map((pageNumber, index, arr) => (
                   <React.Fragment key={pageNumber}>
-                    {index > 0 && arr[index-1] !== pageNumber -1 && pageNumber !== currentPage -1 && pageNumber !== currentPage && pageNumber !== currentPage+1 && totalPages > 5 && <span className="text-muted-foreground">...</span> }
+                    {index > 0 && arr[index-1] !== pageNumber -1 && pageNumber !== currentPage -1 && pageNumber !== currentPage && pageNumber !== currentPage+1 && totalPages > 5 && <span className="text-muted-foreground px-1">...</span> }
                     <Button
                       key={pageNumber}
                       variant={currentPage === pageNumber ? "default" : "outline"}
                       onClick={() => handlePageChange(pageNumber)}
+                      aria-current={currentPage === pageNumber ? "page" : undefined}
+                      className="w-9 h-9"
                     >
                       {pageNumber}
                     </Button>
@@ -202,6 +202,7 @@ function JobsPageContent() {
                 size="icon"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages || totalJobs <= currentPage * JOBS_PER_PAGE}
+                aria-label="Go to next page"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
