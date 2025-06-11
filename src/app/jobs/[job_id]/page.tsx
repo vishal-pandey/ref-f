@@ -68,6 +68,14 @@ function JobDetailsContent() {
     fetchJobDetails();
   }, [jobId, token, user, authLoading, router, pathname, isProfileComplete]);
 
+  const handleGoBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/'); // Fallback to home page
+    }
+  };
+
   if (authLoading || (!authLoading && (!user || !token)) || (!authLoading && user && !isProfileComplete)) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
@@ -85,7 +93,7 @@ function JobDetailsContent() {
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
         <p className="mt-4 text-xl font-semibold text-destructive">Error loading job details</p>
         <p className="text-destructive/80">{error}</p>
-        <Button onClick={() => router.back()} className="mt-6">
+        <Button onClick={handleGoBack} className="mt-6">
           <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
         </Button>
       </div>
@@ -104,7 +112,7 @@ function JobDetailsContent() {
     return (
       <div className="text-center py-10 max-w-2xl mx-auto">
         <p className="text-xl">Job not found.</p>
-        <Button onClick={() => router.back()} className="mt-4">
+        <Button onClick={handleGoBack} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
         </Button>
       </div>
@@ -115,7 +123,7 @@ function JobDetailsContent() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Button variant="outline" onClick={() => router.back()} className="mb-6">
+      <Button variant="outline" onClick={handleGoBack} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Jobs
       </Button>
 
