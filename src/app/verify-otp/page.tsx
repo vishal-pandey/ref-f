@@ -86,7 +86,8 @@ function VerifyOtpContent() {
         }
       });
     }
-  }, [otpDigits, isVerifying, handleSubmit, trigger]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [otpDigits, handleSubmit, trigger]); // Removed isVerifying from dependencies
 
 
   const handleOtpDigitChange = (index: number, value: string) => {
@@ -143,9 +144,11 @@ function VerifyOtpContent() {
 
 
   const onSubmit: SubmitHandler<OtpFormValues> = async (data) => {
-    if (!identifier) return;
+    if (!identifier || isVerifying) { // Added isVerifying check
+      return;
+    }
     
-    const isValid = await trigger("otp_code");
+    const isValid = await trigger("otp_code"); // This validation is still good practice before submission
     if (!isValid) {
         return;
     }
@@ -156,9 +159,6 @@ function VerifyOtpContent() {
     if (identifier.includes("@")) {
       requestData.email = identifier;
     } else {
-      // Normalize mobile number:
-      // 1. If starts with '+', keep '+' and remove non-digits from the rest.
-      // 2. If not starting with '+', remove all non-digits and prepend '+'.
       let normalizedMobile = identifier;
       if (normalizedMobile.startsWith('+')) {
         normalizedMobile = '+' + normalizedMobile.substring(1).replace(/\D/g, '');
@@ -198,7 +198,6 @@ function VerifyOtpContent() {
     if (identifier.includes("@")) {
       requestData.email = identifier;
     } else {
-      // Normalize mobile number for resend request as well
       let normalizedMobile = identifier;
       if (normalizedMobile.startsWith('+')) {
         normalizedMobile = '+' + normalizedMobile.substring(1).replace(/\D/g, '');
@@ -211,7 +210,7 @@ function VerifyOtpContent() {
       await requestOtpAction(requestData);
       toast({
         title: "OTP Resent",
-        description: `A new OTP has been sent to ${identifier}.`, // Show original identifier to user
+        description: `A new OTP has been sent to ${identifier}.`,
       });
       setOtpDigits(Array(6).fill("")); 
       if (inputRefs.current[0]) {
