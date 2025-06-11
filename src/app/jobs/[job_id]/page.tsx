@@ -6,6 +6,8 @@ import { useParams, useRouter, usePathname } from "next/navigation";
 import type { JobPostInDB } from "@/lib/types";
 import { getJobByIdAction } from "@/lib/actions";
 import { useAuth } from "@/context/AuthContext";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +30,7 @@ function JobDetailsContent() {
   useEffect(() => {
     if (authLoading) return;
 
-    const redirectPath = pathname; // For job details, redirect is simpler
+    const redirectPath = pathname; 
 
     if (!user || !token) {
       router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
@@ -50,7 +52,7 @@ function JobDetailsContent() {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedJob = await getJobByIdAction(jobId, token); // Token is now guaranteed by checks above
+        const fetchedJob = await getJobByIdAction(jobId, token); 
         setJob(fetchedJob);
       } catch (err: any) {
         setError(err.message || "Failed to fetch job details.");
@@ -91,8 +93,7 @@ function JobDetailsContent() {
   }
 
   if (!job) {
-     // This case might be hit briefly if fetchJobDetails hasn't completed yet, or if job genuinely not found
-    if (isLoading) { // If still loading due to fetchJobDetails
+    if (isLoading) { 
          return (
             <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -172,9 +173,9 @@ function JobDetailsContent() {
           
           <div>
             <h3 className="text-xl font-semibold mb-2 font-headline">Job Description</h3>
-            <div className="prose prose-sm max-w-none text-foreground dark:prose-invert whitespace-pre-wrap break-words">
-              {job.JobDescription}
-            </div>
+            <article className="prose prose-sm max-w-none text-foreground dark:prose-invert">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{job.JobDescription}</ReactMarkdown>
+            </article>
           </div>
           
           {job.ApplicationLink && (
