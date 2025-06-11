@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -29,27 +30,41 @@ export default function AdminDashboardPage() {
   const [jobs, setJobs] = useState<JobPostInDB[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const { token, isLoading: authLoading } = useAuth(); // Added authLoading to avoid potential race conditions
   const { toast } = useToast();
   const router = useRouter();
 
   const fetchJobs = async () => {
+    if (!token) {
+      // This should ideally be caught by AdminAuthGuard, but good for safety
+      setError("Authentication token not available to fetch jobs.");
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedJobs = await getJobsAction({ limit: 100 }); // Fetch more for admin view initially
+      const fetchedJobs = await getJobsAction({ limit: 100 }, token); // Pass the token
       setJobs(fetchedJobs);
     } catch (err: any) {
       setError(err.message || "Failed to fetch jobs.");
-      console.error(err);
+      console.error("Error fetching jobs in admin:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    // Wait for auth context to load and token to be available
+    if (!authLoading && token) {
+      fetchJobs();
+    } else if (!authLoading && !token) {
+      // If auth has loaded but no token, set an error or let AuthGuard handle it
+      setIsLoading(false); 
+      // setError("Not authenticated to view admin dashboard."); // Optional: specific error message
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, authLoading]); // Depend on token and authLoading
 
   const handleDeleteJob = async (jobId: string, jobTitle: string) => {
     if (!token) {
@@ -62,7 +77,7 @@ export default function AdminDashboardPage() {
         title: "Job Deleted",
         description: `Job "${jobTitle}" has been successfully deleted.`,
       });
-      fetchJobs(); // Re-fetch jobs
+      if (token) fetchJobs(); // Re-fetch jobs only if token is still valid
     } catch (error: any) {
       toast({
         title: "Deletion Failed",
@@ -71,6 +86,18 @@ export default function AdminDashboardPage() {
       });
     }
   };
+
+  // Show loader if auth is loading or jobs are loading (if token is present)
+  if (authLoading || (isLoading && token)) {
+    return (
+        <div className="flex justify-center items-center h-screen">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="ml-3 text-muted-foreground">
+                {authLoading ? "Authenticating..." : "Loading jobs..."}
+            </p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -89,7 +116,7 @@ export default function AdminDashboardPage() {
           <CardDescription>View, edit, or delete job postings.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading && !authLoading ? ( // Show job-specific loader only if auth is done
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
             </div>
@@ -98,6 +125,12 @@ export default function AdminDashboardPage() {
                 <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
                 <p className="mt-3 text-lg font-semibold text-destructive">Error loading jobs</p>
                 <p className="text-destructive/80">{error}</p>
+            </div>
+          ) : !token && !authLoading ? ( // If auth loaded and no token (should be handled by guard, but for completeness)
+             <div className="text-center py-10 bg-destructive/10 border border-destructive rounded-lg">
+                <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
+                <p className="mt-3 text-lg font-semibold text-destructive">Authentication Required</p>
+                <p className="text-destructive/80">You need to be logged in to manage jobs.</p>
             </div>
           ) : jobs.length === 0 ? (
             <div className="text-center py-10">
