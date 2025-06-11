@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+// import { Textarea } from "@/components/ui/textarea"; // No longer needed for JobDescription
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +33,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/context/AuthContext";
+
+import dynamic from 'next/dynamic';
+import MarkdownIt from 'markdown-it';
+import 'react-markdown-editor-lite/lib/index.css';
+
+const MdEditor = dynamic(() => import('react-markdown-editor-lite'), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <p className="ml-2">Loading editor...</p></div>,
+});
+
+const mdParser = new MarkdownIt();
 
 const jobFormSchema = z.object({
   RoleName: z.string().min(1, "Role name is required"),
@@ -106,7 +117,6 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
     try {
       const payload = {
         ...data,
-        // Ensure empty strings are converted to nulls if API expects that for optional fields
         ContactEmail: data.ContactEmail === "" ? null : data.ContactEmail,
         ApplicationLink: data.ApplicationLink === "" ? null : data.ApplicationLink,
       };
@@ -115,17 +125,17 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
         title: job ? "Job Updated" : "Job Created",
         description: `Job "${data.RoleName}" has been successfully ${job ? 'updated' : 'created'}.`,
       });
-      router.push("/admin"); // Redirect to admin dashboard
-      router.refresh(); // Refresh server components
+      router.push("/admin"); 
+      router.refresh(); 
     } catch (error: any) {
-      if (error.message && error.message.includes("(Status: 401)")) {
+      if (error.message && (error.message.includes("(Status: 401)") || error.message.toLowerCase().includes("unauthorized"))) {
         toast({
           title: "Session Expired",
           description: "Your session has expired. Please log in again.",
           variant: "destructive",
         });
-        logout(); // Clears token from context and localStorage
-        router.push('/login'); // Redirect to login page
+        logout(); 
+        router.push('/login'); 
       } else {
         toast({
           title: job ? "Update Failed" : "Creation Failed",
@@ -150,7 +160,7 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
       router.push("/admin");
       router.refresh();
     } catch (error: any) {
-      if (error.message && error.message.includes("(Status: 401)")) {
+      if (error.message && (error.message.includes("(Status: 401)") || error.message.toLowerCase().includes("unauthorized"))) {
          toast({
           title: "Session Expired",
           description: "Your session has expired. Please log in again.",
@@ -170,6 +180,10 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
     }
   };
 
+  function handleEditorChange({ text }: { html: string; text: string }, fieldOnChange: (value: string) => void) {
+    fieldOnChange(text);
+  }
+
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
       <CardHeader>
@@ -183,7 +197,6 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* RoleName, CompanyName, JobDescription are required */}
           <div>
             <Label htmlFor="RoleName">Role Name <span className="text-destructive">*</span></Label>
             <Input id="RoleName" {...register("RoleName")} className={errors.RoleName ? "border-destructive" : ""} />
@@ -216,7 +229,7 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
           </div>
            <div>
             <Label htmlFor="ReferralStatus">Referral Available Status</Label>
-            <Controller<JobFormValues, "ReferralStatus">
+            <Controller
                 name="ReferralStatus"
                 control={control}
                 render={({ field }) => (
@@ -237,8 +250,22 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
           </div>
           <div>
             <Label htmlFor="JobDescription">Job Description <span className="text-destructive">*</span></Label>
-            <Textarea id="JobDescription" {...register("JobDescription")} rows={8} className={errors.JobDescription ? "border-destructive" : ""} />
-            {errors.JobDescription && <p className="text-sm text-destructive">{errors.JobDescription.message}</p>}
+            <Controller
+              name="JobDescription"
+              control={control}
+              rules={{ required: "Job description is required" }}
+              render={({ field }) => (
+                <MdEditor
+                  value={field.value || ""}
+                  style={{ height: '400px', width: '100%' }}
+                  className={errors.JobDescription ? "border border-destructive rounded-md" : "border rounded-md"}
+                  renderHTML={text => mdParser.render(text)}
+                  onChange={(data) => handleEditorChange(data, field.onChange)}
+                  onBlur={field.onBlur} // Important for react-hook-form validation trigger
+                />
+              )}
+            />
+            {errors.JobDescription && <p className="text-sm text-destructive mt-1">{errors.JobDescription.message}</p>}
           </div>
           <CardFooter className="flex justify-between p-0 pt-6">
             <Button type="submit" disabled={isSubmitting || !authToken} className="min-w-[120px]">
