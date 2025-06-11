@@ -123,9 +123,9 @@ function JobDetailsContent() {
         <CardHeader className="bg-card p-6 border-b">
           <CardTitle className="text-3xl font-headline text-primary">{job.RoleName}</CardTitle>
           <CardDescription className="text-lg text-muted-foreground pt-1">
-            <Link href={job.ApplicationLink || "#"} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center">
+            <span className="flex items-center"> {/* Changed to span for cases where ApplicationLink is missing */}
               <Building className="h-5 w-5 mr-2 shrink-0" /> {job.CompanyName}
-            </Link>
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 space-y-6">
@@ -178,12 +178,18 @@ function JobDetailsContent() {
             </article>
           </div>
           
-          {job.ApplicationLink && (
+          {(job.ApplicationLink || job.ContactEmail) && (
             <div className="pt-4 border-t">
               <Button asChild size="lg" className="w-full md:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Link href={job.ApplicationLink} target="_blank" rel="noopener noreferrer">
-                  Apply Now <ExternalLink className="ml-2 h-4 w-4" />
-                </Link>
+                {job.ApplicationLink ? (
+                  <Link href={job.ApplicationLink} target="_blank" rel="noopener noreferrer">
+                    Apply Now <ExternalLink className="ml-2 h-4 w-4" />
+                  </Link>
+                ) : job.ContactEmail ? (
+                  <Link href={`mailto:${job.ContactEmail}`}>
+                    Apply Now <Mail className="ml-2 h-4 w-4" />
+                  </Link>
+                ) : null}
               </Button>
             </div>
           )}
