@@ -44,7 +44,7 @@ function VerifyOtpContent() {
     trigger,
   } = useForm<OtpFormValues>({
     resolver: zodResolver(otpSchema),
-    mode: "onSubmit", // Changed mode to prevent initial errors
+    mode: "onSubmit", 
   });
 
   useEffect(() => {
@@ -74,14 +74,12 @@ function VerifyOtpContent() {
 
   useEffect(() => {
     const combinedOtp = otpDigits.join("");
-    setValue("otp_code", combinedOtp); // Removed { shouldValidate: true }
+    setValue("otp_code", combinedOtp);
   }, [otpDigits, setValue]);
 
-  // Auto-submit useEffect
   useEffect(() => {
     const combinedOtp = otpDigits.join("");
     if (combinedOtp.length === 6 && !isVerifying) {
-      // Ensure form is valid before submitting, though length check is primary
       trigger("otp_code").then(isValid => {
         if (isValid) {
           handleSubmit(onSubmit)();
@@ -93,7 +91,7 @@ function VerifyOtpContent() {
 
   const handleOtpDigitChange = (index: number, value: string) => {
     const newOtpDigits = [...otpDigits];
-    newOtpDigits[index] = value.slice(-1).replace(/\D/g, ""); // Allow only single digit, remove non-digits
+    newOtpDigits[index] = value.slice(-1).replace(/\D/g, ""); 
     setOtpDigits(newOtpDigits);
 
     if (value && index < 5 && inputRefs.current[index + 1]) {
@@ -147,15 +145,8 @@ function VerifyOtpContent() {
   const onSubmit: SubmitHandler<OtpFormValues> = async (data) => {
     if (!identifier) return;
     
-    // Double check form validity (though auto-submit effect already does)
     const isValid = await trigger("otp_code");
     if (!isValid) {
-        // This toast might be redundant if the RHF error message is preferred
-        // toast({
-        //   title: "Invalid OTP",
-        //   description: "OTP must be 6 digits.",
-        //   variant: "destructive",
-        // });
         return;
     }
 
@@ -165,7 +156,16 @@ function VerifyOtpContent() {
     if (identifier.includes("@")) {
       requestData.email = identifier;
     } else {
-      requestData.mobile_number = identifier;
+      // Normalize mobile number:
+      // 1. If starts with '+', keep '+' and remove non-digits from the rest.
+      // 2. If not starting with '+', remove all non-digits and prepend '+'.
+      let normalizedMobile = identifier;
+      if (normalizedMobile.startsWith('+')) {
+        normalizedMobile = '+' + normalizedMobile.substring(1).replace(/\D/g, '');
+      } else {
+        normalizedMobile = '+' + normalizedMobile.replace(/\D/g, '');
+      }
+      requestData.mobile_number = normalizedMobile;
     }
 
     try {
@@ -182,9 +182,9 @@ function VerifyOtpContent() {
         description: error.message || "Invalid OTP or an unexpected error occurred.",
         variant: "destructive",
       });
-      setOtpDigits(Array(6).fill("")); // Clear OTP fields
+      setOtpDigits(Array(6).fill("")); 
       if (inputRefs.current[0]) {
-        inputRefs.current[0]?.focus(); // Focus first input
+        inputRefs.current[0]?.focus(); 
       }
     } finally {
       setIsVerifying(false);
@@ -198,17 +198,24 @@ function VerifyOtpContent() {
     if (identifier.includes("@")) {
       requestData.email = identifier;
     } else {
-      requestData.mobile_number = identifier;
+      // Normalize mobile number for resend request as well
+      let normalizedMobile = identifier;
+      if (normalizedMobile.startsWith('+')) {
+        normalizedMobile = '+' + normalizedMobile.substring(1).replace(/\D/g, '');
+      } else {
+        normalizedMobile = '+' + normalizedMobile.replace(/\D/g, '');
+      }
+      requestData.mobile_number = normalizedMobile;
     }
     try {
       await requestOtpAction(requestData);
       toast({
         title: "OTP Resent",
-        description: `A new OTP has been sent to ${identifier}.`,
+        description: `A new OTP has been sent to ${identifier}.`, // Show original identifier to user
       });
-      setOtpDigits(Array(6).fill("")); // Clear OTP fields on resend
+      setOtpDigits(Array(6).fill("")); 
       if (inputRefs.current[0]) {
-        inputRefs.current[0]?.focus(); // Focus first input
+        inputRefs.current[0]?.focus(); 
       }
       setCountdown(60); 
     } catch (error: any) {
@@ -278,30 +285,18 @@ function VerifyOtpContent() {
                     value={digit}
                     onChange={(e) => handleOtpDigitChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
-                    className={`w-10 h-12 text-center text-xl border-2 ${errors.otp_code ? "border-destructive" : "border-input"} focus:border-primary focus:ring-primary transition-all duration-150 ease-in-out`}
+                    className={`w-10 h-12 text-center text-xl border-2 ${errors.otp_code && !isVerifying ? "border-destructive" : "border-input"} focus:border-primary focus:ring-primary transition-all duration-150 ease-in-out`}
                     autoComplete="one-time-code"
                     aria-label={`OTP digit ${index + 1}`}
                     disabled={isVerifying}
                   />
                 ))}
               </div>
-              {/* This hidden input is managed by RHF for overall validation */}
               <input type="hidden" {...setValue("otp_code", otpDigits.join(""))} />
-              {errors.otp_code && <p className="text-sm text-destructive text-center pt-2">{errors.otp_code.message}</p>}
+              {errors.otp_code && !isVerifying && <p className="text-sm text-destructive text-center pt-2">{errors.otp_code.message}</p>}
             </div>
-            
-            {/* Submit button removed for auto-submission */}
-            {/* 
-            <Button type="submit" className="w-full text-lg py-6" disabled={isVerifying}>
-              {isVerifying ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                "Verify OTP"
-              )}
-            </Button> 
-            */}
           </form>
-          <div className="mt-6 text-center text-sm"> {/* Increased margin-top */}
+          <div className="mt-6 text-center text-sm"> 
             Didn't receive OTP?{" "}
             <Button
               variant="link"
