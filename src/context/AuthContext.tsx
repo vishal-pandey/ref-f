@@ -40,17 +40,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const decodedToken = jwtDecode<DecodedToken>(storedToken);
           if (decodedToken.exp && decodedToken.exp * 1000 > Date.now()) {
-            setToken(storedToken);
+            // Token is not expired client-side, try to fetch user
             const currentUser = await getCurrentUserAction(storedToken);
             setUser(currentUser);
+            setToken(storedToken); // Set token only after successful user fetch
           } else {
-            console.log("Stored token expired.");
+            console.log("Stored token expired (client-side check).");
             localStorage.removeItem("authToken");
             setToken(null);
             setUser(null);
           }
-        } catch (error) {
-          console.error("Failed to initialize auth from stored token:", error);
+        } catch (error: any) {
+          console.error("Failed to initialize auth from stored token:", error.message);
+          // If getCurrentUserAction fails (e.g., 401), or decoding fails, clear auth state
           localStorage.removeItem("authToken");
           setToken(null);
           setUser(null);
