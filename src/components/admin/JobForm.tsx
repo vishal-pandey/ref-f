@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -31,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/context/AuthContext";
 
 const jobFormSchema = z.object({
   RoleName: z.string().min(1, "Role name is required"),
@@ -55,6 +57,7 @@ interface JobFormProps {
 export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken }: JobFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { logout } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -115,11 +118,21 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
       router.push("/admin"); // Redirect to admin dashboard
       router.refresh(); // Refresh server components
     } catch (error: any) {
-      toast({
-        title: job ? "Update Failed" : "Creation Failed",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      if (error.message && error.message.includes("(Status: 401)")) {
+        toast({
+          title: "Session Expired",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        logout(); // Clears token from context and localStorage
+        router.push('/login'); // Redirect to login page
+      } else {
+        toast({
+          title: job ? "Update Failed" : "Creation Failed",
+          description: error.message || "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -137,11 +150,21 @@ export default function JobForm({ job, onSubmitAction, onDeleteAction, authToken
       router.push("/admin");
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: "Deletion Failed",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      if (error.message && error.message.includes("(Status: 401)")) {
+         toast({
+          title: "Session Expired",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+        });
+        logout();
+        router.push('/login');
+      } else {
+        toast({
+          title: "Deletion Failed",
+          description: error.message || "An unexpected error occurred.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsDeleting(false);
     }
