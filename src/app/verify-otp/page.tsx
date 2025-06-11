@@ -1,8 +1,9 @@
+
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm, type SubmitHandler } from "react-hook-form";
+import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,20 @@ function VerifyOtpContent() {
   const identifier = searchParams.get("identifier");
   const redirectUrl = searchParams.get("redirect") || "/";
 
+  // State for individual OTP digits
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(""));
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const {
+    handleSubmit,
+    setValue, // For react-hook-form
+    formState: { errors },
+    trigger, // To manually trigger validation
+  } = useForm<OtpFormValues>({
+    resolver: zodResolver(otpSchema),
+    mode: "onChange", // Validate on change to show errors as user types if needed
+  });
+
   useEffect(() => {
     if (!authIsLoading && user) {
       router.push(redirectUrl);
@@ -58,16 +73,87 @@ function VerifyOtpContent() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<OtpFormValues>({
-    resolver: zodResolver(otpSchema),
-  });
+  // Effect to update react-hook-form's otp_code value when otpDigits change
+  useEffect(() => {
+    const combinedOtp = otpDigits.join("");
+    setValue("otp_code", combinedOtp, { shouldValidate: true });
+  }, [otpDigits, setValue]);
+
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const newOtpDigits = [...otpDigits];
+    // Allow only single digit
+    newOtpDigits[index] = value.slice(-1); 
+    setOtpDigits(newOtpDigits);
+
+    // Auto-focus next input if digit entered and not the last input
+    if (value && index < 5 && inputRefs.current[index + 1]) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      e.preventDefault(); // Prevent default backspace behavior
+      const newOtpDigits = [...otpDigits];
+      if (newOtpDigits[index]) {
+        newOtpDigits[index] = ""; // Clear current input
+        setOtpDigits(newOtpDigits);
+      } else if (index > 0 && inputRefs.current[index - 1]) {
+         // If current is empty and not the first input, focus previous
+        inputRefs.current[index - 1]?.focus();
+        // Optionally clear previous input as well
+        // const prevOtpDigits = [...otpDigits];
+        // prevOtpDigits[index-1] = "";
+        // setOtpDigits(prevOtpDigits);
+      }
+    } else if (e.key === "ArrowLeft" && index > 0 && inputRefs.current[index - 1]) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5 && inputRefs.current[index + 1]) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+  
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text/plain").replace(/\D/g, ""); // Remove non-digits
+    if (pastedData.length === 6) {
+      const newOtpDigits = pastedData.split("");
+      setOtpDigits(newOtpDigits);
+      setValue("otp_code", pastedData, { shouldValidate: true }); // Update RHF value
+      if (inputRefs.current[5]) {
+        inputRefs.current[5]?.focus(); // Focus last input after paste
+      }
+    } else if (pastedData.length > 0 && pastedData.length < 6) {
+        // Partial paste, fill from current input
+        const currentFocusIndex = inputRefs.current.findIndex(ref => ref === document.activeElement);
+        const startIndex = currentFocusIndex !== -1 ? currentFocusIndex : 0;
+        const newOtpDigits = [...otpDigits];
+        for (let i = 0; i < pastedData.length && (startIndex + i) < 6; i++) {
+            newOtpDigits[startIndex + i] = pastedData[i];
+        }
+        setOtpDigits(newOtpDigits);
+        const lastFilledIndex = Math.min(startIndex + pastedData.length -1, 5);
+         if (inputRefs.current[lastFilledIndex]) {
+            inputRefs.current[lastFilledIndex]?.focus();
+        }
+    }
+  };
+
 
   const onSubmit: SubmitHandler<OtpFormValues> = async (data) => {
     if (!identifier) return;
+    // Ensure validation is triggered before submit, although react-hook-form should do this
+    const isValid = await trigger("otp_code");
+    if (!isValid) {
+      toast({
+        title: "Invalid OTP",
+        description: "OTP must be 6 digits.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsVerifying(true);
 
     const requestData: OTPVerify = { otp_code: data.otp_code };
@@ -79,7 +165,7 @@ function VerifyOtpContent() {
 
     try {
       const tokenData: Token = await verifyOtpAction(requestData);
-      login(tokenData); // This now sets the token in AuthContext and updates user
+      login(tokenData); 
       toast({
         title: "Login Successful",
         description: "You have been successfully logged in.",
@@ -111,7 +197,7 @@ function VerifyOtpContent() {
         title: "OTP Resent",
         description: `A new OTP has been sent to ${identifier}.`,
       });
-      setCountdown(60); // Start 60s countdown
+      setCountdown(60); 
     } catch (error: any) {
       toast({
         title: "Failed to Resend OTP",
@@ -160,26 +246,33 @@ function VerifyOtpContent() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="otp_code" className="text-base">
+              <Label htmlFor="otp_code_0" className="text-base sr-only"> 
                 Enter OTP
               </Label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <ShieldCheck className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <Input
-                  id="otp_code"
-                  type="text"
-                  maxLength={6}
-                  placeholder="Enter 6-digit OTP"
-                  {...register("otp_code")}
-                  className={`pl-10 text-base tracking-[0.3em] text-center ${errors.otp_code ? "border-destructive" : ""}`}
-                  autoComplete="one-time-code"
-                />
+              <div className="flex justify-center space-x-2" onPaste={handlePaste}>
+                {otpDigits.map((digit, index) => (
+                  <Input
+                    key={index}
+                    id={`otp_code_${index}`}
+                    ref={(el) => {
+                      inputRefs.current[index] = el;
+                    }}
+                    type="text" // Use text to allow single char, but pattern restricts
+                    maxLength={1}
+                    pattern="[0-9]" // Allow only digits
+                    inputMode="numeric" // Show numeric keyboard on mobile
+                    value={digit}
+                    onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    className={`w-10 h-12 text-center text-xl border-2 ${errors.otp_code && otpDigits.join("").length !== 6 && !digit ? "border-destructive" : "border-input"} focus:border-primary focus:ring-primary transition-all duration-150 ease-in-out`}
+                    autoComplete="one-time-code"
+                    aria-label={`OTP digit ${index + 1}`}
+                  />
+                ))}
               </div>
-              {errors.otp_code && (
-                <p className="text-sm text-destructive">{errors.otp_code.message}</p>
-              )}
+              {/* This hidden input is managed by RHF for overall validation */}
+              <input type="hidden" {...setValue("otp_code", otpDigits.join(""))} />
+              {errors.otp_code && <p className="text-sm text-destructive text-center pt-2">{errors.otp_code.message}</p>}
             </div>
             
             <Button type="submit" className="w-full text-lg py-6" disabled={isVerifying}>
@@ -215,3 +308,5 @@ export default function VerifyOtpPage() {
     </Suspense>
   );
 }
+      
+    
