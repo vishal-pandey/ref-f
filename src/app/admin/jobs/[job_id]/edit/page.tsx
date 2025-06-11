@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
@@ -22,7 +23,7 @@ function EditJobContent() {
     if (!jobId || authLoading) return; // Don't fetch if no ID or auth is still loading
 
     if (!token) {
-      setError("Not authenticated."); // Should be caught by AdminAuthGuard, but good to double check
+      setError("Not authenticated to edit job details."); // Should be caught by AdminAuthGuard, but good to double check
       setIsLoading(false);
       return;
     }
@@ -31,7 +32,7 @@ function EditJobContent() {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedJob = await getJobByIdAction(jobId);
+        const fetchedJob = await getJobByIdAction(jobId, token); // Pass token here
         setJob(fetchedJob);
       } catch (err: any) {
         setError(err.message || "Failed to fetch job details for editing.");
