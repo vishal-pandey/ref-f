@@ -69,11 +69,7 @@ function JobDetailsContent() {
   }, [jobId, token, user, authLoading, router, pathname, isProfileComplete]);
 
   const handleGoBack = () => {
-    if (window.history.length > 1) {
-      router.back();
-    } else {
-      router.push('/'); // Fallback to home page
-    }
+    router.push('/'); 
   };
 
   if (authLoading || (!authLoading && (!user || !token)) || (!authLoading && user && !isProfileComplete)) {
