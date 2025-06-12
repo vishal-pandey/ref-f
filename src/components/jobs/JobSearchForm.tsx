@@ -4,81 +4,51 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Search, X, Briefcase, Building, MapPin, Users, Loader2 } from "lucide-react"; // Added Loader2
+import { Input } from "@/components/ui/input";
+import { Search, X, MapPin, Loader2 } from "lucide-react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import {
-  getRoleNameSuggestionsAction,
-  getCompanyNameSuggestionsAction,
-  getLocationSuggestionsAction,
-  getDepartmentNameSuggestionsAction
-} from "@/lib/actions";
+import { getLocationSuggestionsAction } from "@/lib/actions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { useAuth } from "@/context/AuthContext"; // Added useAuth
-import { useToast } from "@/hooks/use-toast"; // Added useToast
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface SearchFormData {
-  RoleName?: string;
-  CompanyName?: string;
+  keyword?: string;
   Location?: string;
-  DepartmentName?: string;
 }
 
 export default function JobSearchForm() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { token, user, isLoading: authLoading } = useAuth(); // Get token and auth state
+  const { token, user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<SearchFormData>({
     defaultValues: {
-      RoleName: searchParams.get("RoleName") || "",
-      CompanyName: searchParams.get("CompanyName") || "",
+      keyword: searchParams.get("keyword") || "",
       Location: searchParams.get("Location") || "",
-      DepartmentName: searchParams.get("DepartmentName") || "",
     },
   });
 
-  const [roleSuggestions, setRoleSuggestions] = useState<string[]>([]);
-  const [companySuggestions, setCompanySuggestions] = useState<string[]>([]);
   const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
-  const [departmentSuggestions, setDepartmentSuggestions] = useState<string[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-
-  const [openRole, setOpenRole] = useState(false);
-  const [openCompany, setOpenCompany] = useState(false);
   const [openLocation, setOpenLocation] = useState(false);
-  const [openDepartment, setOpenDepartment] = useState(false);
 
-  // Watch values for dynamic updates if needed, but not strictly necessary for this form's current logic.
-  // const watchedRoleName = watch("RoleName");
-  // const watchedCompanyName = watch("CompanyName");
-  // const watchedLocation = watch("Location");
-  // const watchedDepartmentName = watch("DepartmentName");
-
-
-  const fetchSuggestions = useCallback(async () => {
-    if (!token || authLoading) { // Don't fetch if no token or auth is still loading
+  const fetchLocationSuggestions = useCallback(async () => {
+    if (!token || authLoading) {
       return;
     }
     setSuggestionsLoading(true);
     try {
-      const [roles, companies, locations, departments] = await Promise.all([
-        getRoleNameSuggestionsAction(token),
-        getCompanyNameSuggestionsAction(token),
-        getLocationSuggestionsAction(token),
-        getDepartmentNameSuggestionsAction(token)
-      ]);
-      setRoleSuggestions(roles.suggestions);
-      setCompanySuggestions(companies.suggestions);
+      const locations = await getLocationSuggestionsAction(token);
       setLocationSuggestions(locations.suggestions);
-      setDepartmentSuggestions(departments.suggestions);
     } catch (error: any) {
-      console.error("Failed to fetch suggestions:", error);
+      console.error("Failed to fetch location suggestions:", error);
       toast({
         title: "Error",
-        description: "Could not load search suggestions. " + error.message,
+        description: "Could not load location suggestions. " + error.message,
         variant: "destructive"
       })
     } finally {
@@ -87,11 +57,11 @@ export default function JobSearchForm() {
   }, [token, authLoading, toast]);
 
   useEffect(() => {
-    fetchSuggestions();
-  }, [fetchSuggestions]);
+    fetchLocationSuggestions();
+  }, [fetchLocationSuggestions]);
 
   const onSubmit = (data: SearchFormData) => {
-    const params = new URLSearchParams(searchParams.toString()); // Preserve existing params
+    const params = new URLSearchParams(searchParams.toString());
     Object.entries(data).forEach(([key, value]) => {
       if (value) {
         params.set(key, value);
@@ -99,7 +69,6 @@ export default function JobSearchForm() {
         params.delete(key);
       }
     });
-    // Only push if params actually changed to avoid unnecessary re-renders/fetches
     if (params.toString() !== searchParams.toString()) {
       router.push(`${pathname}?${params.toString()}`);
     }
@@ -107,50 +76,40 @@ export default function JobSearchForm() {
 
   const handleClearFilters = () => {
     reset({
-      RoleName: "",
-      CompanyName: "",
+      keyword: "",
       Location: "",
-      DepartmentName: "",
     });
-    router.push(pathname); // Clears all query params
+    router.push(pathname); 
   };
   
-  const renderSuggestionPopover = (
-    fieldName: keyof SearchFormData,
-    suggestions: string[],
-    isOpen: boolean,
-    setIsOpen: (open: boolean) => void,
-    placeholder: string,
-    Icon: React.ElementType
-  ) => (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+  const renderLocationSuggestionPopover = () => (
+    <Popover open={openLocation} onOpenChange={setOpenLocation}>
       <PopoverTrigger asChild>
         <Button 
           variant="outline" 
           role="combobox" 
-          aria-expanded={isOpen} 
+          aria-expanded={openLocation} 
           className="w-full justify-between text-muted-foreground hover:text-foreground"
-          disabled={authLoading || !token || suggestionsLoading} // Disable if auth loading, no token, or suggestions loading
+          disabled={authLoading || !token || suggestionsLoading}
         >
-          <Icon className="mr-2 h-4 w-4" />
-          {watch(fieldName) || placeholder}
-          {suggestionsLoading && fieldName === "RoleName" && <Loader2 className="ml-auto h-4 w-4 animate-spin" />} 
+          <MapPin className="mr-2 h-4 w-4" />
+          {watch("Location") || "Select location"}
+          {suggestionsLoading && <Loader2 className="ml-auto h-4 w-4 animate-spin" />} 
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0" side="bottom" align="start">
         <Command>
-          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
+          <CommandInput placeholder="Search location..."/>
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {suggestions.map((suggestion) => (
+              {locationSuggestions.map((suggestion) => (
                 <CommandItem
                   key={suggestion}
                   value={suggestion}
                   onSelect={(currentValue) => {
-                    setValue(fieldName, currentValue === watch(fieldName) ? "" : currentValue, { shouldDirty: true });
-                    setIsOpen(false);
-                    // Trigger form submission after selecting an item
+                    setValue("Location", currentValue === watch("Location") ? "" : currentValue, { shouldDirty: true });
+                    setOpenLocation(false);
                     handleSubmit(onSubmit)(); 
                   }}
                 >
@@ -166,34 +125,36 @@ export default function JobSearchForm() {
 
   if (authLoading) {
     return (
-      <div className="p-6 bg-card rounded-xl shadow-lg flex items-center justify-center h-[136px]"> 
+      <div className="p-6 bg-card rounded-xl shadow-lg flex items-center justify-center h-[136px] md:h-auto md:min-h-[92px]"> 
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="ml-3 text-muted-foreground">Loading search filters...</p>
       </div>
     );
   }
   
-  // Do not render form if not authenticated, page should redirect
   if (!user && !token) return null;
-
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="p-6 bg-card rounded-xl shadow-lg space-y-4 md:space-y-0 md:grid md:grid-cols-5 md:gap-4 md:items-end">
-      <div className="md:col-span-1">
-        <label htmlFor="RoleName" className="block text-sm font-medium text-foreground mb-1">Role Name</label>
-        {renderSuggestionPopover("RoleName", roleSuggestions, openRole, setOpenRole, "e.g. Developer", Briefcase)}
+      <div className="md:col-span-3"> {/* Wider input for keyword search */}
+        <label htmlFor="keyword" className="block text-sm font-medium text-foreground mb-1">Search Keyword</label>
+        <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <Input
+              id="keyword"
+              placeholder="e.g. Software Engineer, Marketing, Python"
+              {...register("keyword")}
+              className="pl-10" 
+              disabled={authLoading || !token}
+            />
+        </div>
       </div>
-      <div className="md:col-span-1">
-        <label htmlFor="CompanyName" className="block text-sm font-medium text-foreground mb-1">Company</label>
-         {renderSuggestionPopover("CompanyName", companySuggestions, openCompany, setOpenCompany, "e.g. Acme Corp", Building)}
-      </div>
+      
       <div className="md:col-span-1">
         <label htmlFor="Location" className="block text-sm font-medium text-foreground mb-1">Location</label>
-        {renderSuggestionPopover("Location", locationSuggestions, openLocation, setOpenLocation, "e.g. New York", MapPin)}
-      </div>
-      <div className="md:col-span-1">
-        <label htmlFor="DepartmentName" className="block text-sm font-medium text-foreground mb-1">Department</label>
-        {renderSuggestionPopover("DepartmentName", departmentSuggestions, openDepartment, setOpenDepartment, "e.g. Engineering", Users)}
+        {renderLocationSuggestionPopover()}
       </div>
       
       <div className="md:col-span-1 flex space-x-2">

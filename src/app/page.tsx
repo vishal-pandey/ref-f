@@ -45,12 +45,10 @@ function JobsPageContent() {
       return;
     }
 
-    const roleName = searchParams.get('RoleName') || undefined;
-    const companyName = searchParams.get('CompanyName') || undefined;
+    const keyword = searchParams.get('keyword') || undefined;
     const location = searchParams.get('Location') || undefined;
-    const departmentName = searchParams.get('DepartmentName') || undefined;
 
-    setFilters({ RoleName: roleName, CompanyName: companyName, Location: location, DepartmentName: departmentName });
+    setFilters({ keyword, Location: location });
     setCurrentPage(1); 
   }, [searchParams, user, token, authLoading, router, pathname, isProfileComplete]);
 
@@ -72,7 +70,7 @@ function JobsPageContent() {
         if (fetchedJobs.length < JOBS_PER_PAGE) {
             setTotalJobs((currentPage -1) * JOBS_PER_PAGE + fetchedJobs.length);
         } else {
-            const nextPageCheckParams = { ...filters, skip: currentPage * JOBS_PER_PAGE, limit: 1 };
+            const nextPageCheckParams: JobFilters = { ...filters, skip: currentPage * JOBS_PER_PAGE, limit: 1 };
             const nextPageCheckJobs = await getJobsAction(nextPageCheckParams, token);
             if (nextPageCheckJobs.length === 0) { 
                 setTotalJobs(currentPage * JOBS_PER_PAGE);

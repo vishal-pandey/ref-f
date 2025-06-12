@@ -77,10 +77,9 @@ export interface UserUpdate {
 }
 
 export interface JobFilters {
-  RoleName?: string;
-  CompanyName?: string;
   Location?: string;
-  DepartmentName?: string;
+  keyword?: string;
   skip?: number;
   limit?: number;
 }
+
