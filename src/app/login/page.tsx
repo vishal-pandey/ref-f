@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
@@ -12,11 +13,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { requestOtpAction } from "@/lib/actions";
 import type { OTPRequest } from "@/lib/types";
-import { Loader2, Mail, Smartphone } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const loginSchema = z.object({
-  identifier: z.string().min(1, "Email or Mobile number is required"),
+  identifier: z.string().email("Invalid email address").min(1, "Email is required"),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -26,7 +27,6 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<"email" | "mobile">("email");
   
   const { user, isLoading: authIsLoading } = useAuth();
 
@@ -42,52 +42,13 @@ function LoginContent() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
-    watch,
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
-  const identifierValue = watch("identifier");
-
-  useEffect(() => {
-    // Basic check to infer login method - can be more sophisticated
-    if (identifierValue && identifierValue.includes("@")) {
-      setLoginMethod("email");
-    } else if (identifierValue && /^\+?[0-9\s-()]+$/.test(identifierValue)) {
-      setLoginMethod("mobile");
-    }
-  }, [identifierValue]);
-
-
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     setIsLoading(true);
-    const requestData: OTPRequest = {};
-    if (loginMethod === "email") {
-      if (!z.string().email().safeParse(data.identifier).success) {
-        toast({
-          title: "Invalid Email",
-          description: "Please enter a valid email address.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      requestData.email = data.identifier;
-    } else {
-      // Basic mobile validation, can be improved with a library like libphonenumber-js
-      const numericMobile = data.identifier.replace(/\D/g, '');
-      if (numericMobile.length < 10) { // Simple length check
-         toast({
-          title: "Invalid Mobile Number",
-          description: "Please enter a valid mobile number.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      requestData.mobile_number = data.identifier.startsWith('+') ? data.identifier : `+${data.identifier}`; // Assuming international format or prefixing
-    }
+    const requestData: OTPRequest = { email: data.identifier };
 
     try {
       await requestOtpAction(requestData);
@@ -123,26 +84,26 @@ function LoginContent() {
         <CardHeader>
           <CardTitle className="text-3xl font-headline text-center">Welcome to ReferralNetwork</CardTitle>
           <CardDescription className="text-center">
-            Enter your email or mobile number to receive an OTP.
+            Enter your email address to receive an OTP.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="identifier" className="text-base">
-                Email or Mobile Number
+                Email Address
               </Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  {loginMethod === 'email' ? <Mail className="h-5 w-5 text-muted-foreground" /> : <Smartphone className="h-5 w-5 text-muted-foreground" />}
+                  <Mail className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <Input
                   id="identifier"
-                  type="text"
-                  placeholder={loginMethod === 'email' ? "name@example.com" : "+1234567890"}
+                  type="email"
+                  placeholder="name@example.com"
                   {...register("identifier")}
                   className={`pl-10 text-base ${errors.identifier ? "border-destructive" : ""}`}
-                  autoComplete="username"
+                  autoComplete="email"
                 />
               </div>
               {errors.identifier && (

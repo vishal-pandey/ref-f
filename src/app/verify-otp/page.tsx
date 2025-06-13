@@ -31,7 +31,7 @@ function VerifyOtpContent() {
   const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  const identifier = searchParams.get("identifier");
+  const identifier = searchParams.get("identifier"); // This will now always be an email
   const redirectUrl = searchParams.get("redirect") || "/";
 
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(""));
@@ -57,7 +57,7 @@ function VerifyOtpContent() {
     if (!identifier) {
       toast({
         title: "Error",
-        description: "Identifier (email/mobile) not found. Please try logging in again.",
+        description: "Identifier (email) not found. Please try logging in again.",
         variant: "destructive",
       });
       router.push("/login");
@@ -86,8 +86,7 @@ function VerifyOtpContent() {
         }
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [otpDigits, handleSubmit, trigger]); // Removed isVerifying from dependencies
+  }, [otpDigits, handleSubmit, trigger]);
 
 
   const handleOtpDigitChange = (index: number, value: string) => {
@@ -144,30 +143,22 @@ function VerifyOtpContent() {
 
 
   const onSubmit: SubmitHandler<OtpFormValues> = async (data) => {
-    if (!identifier || isVerifying) { // Added isVerifying check
+    if (!identifier || isVerifying) {
       return;
     }
     
-    const isValid = await trigger("otp_code"); // This validation is still good practice before submission
+    const isValid = await trigger("otp_code");
     if (!isValid) {
         return;
     }
 
     setIsVerifying(true);
 
-    const requestData: OTPVerify = { otp_code: data.otp_code };
-    if (identifier.includes("@")) {
-      requestData.email = identifier;
-    } else {
-      let normalizedMobile = identifier;
-      if (normalizedMobile.startsWith('+')) {
-        normalizedMobile = '+' + normalizedMobile.substring(1).replace(/\D/g, '');
-      } else {
-        normalizedMobile = '+' + normalizedMobile.replace(/\D/g, '');
-      }
-      requestData.mobile_number = normalizedMobile;
-    }
-
+    const requestData: OTPVerify = { 
+      otp_code: data.otp_code,
+      email: identifier // Identifier is now always email
+    };
+    
     try {
       const tokenData: Token = await verifyOtpAction(requestData);
       login(tokenData); 
@@ -194,18 +185,8 @@ function VerifyOtpContent() {
   const handleResendOtp = async () => {
     if (!identifier) return;
     setIsResending(true);
-    const requestData: OTPRequest = {};
-    if (identifier.includes("@")) {
-      requestData.email = identifier;
-    } else {
-      let normalizedMobile = identifier;
-      if (normalizedMobile.startsWith('+')) {
-        normalizedMobile = '+' + normalizedMobile.substring(1).replace(/\D/g, '');
-      } else {
-        normalizedMobile = '+' + normalizedMobile.replace(/\D/g, '');
-      }
-      requestData.mobile_number = normalizedMobile;
-    }
+    const requestData: OTPRequest = { email: identifier }; // Identifier is now always email
+
     try {
       await requestOtpAction(requestData);
       toast({
@@ -245,7 +226,7 @@ function VerifyOtpContent() {
             <CardTitle className="text-2xl font-headline text-center">Error</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-center text-destructive">Missing identifier. Please return to login.</p>
+            <p className="text-center text-destructive">Missing email identifier. Please return to login.</p>
             <Button onClick={() => router.push('/login')} className="w-full mt-4">Go to Login</Button>
           </CardContent>
         </Card>
@@ -320,5 +301,3 @@ export default function VerifyOtpPage() {
     </Suspense>
   );
 }
-      
-    
